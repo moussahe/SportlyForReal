@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SessionStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum WorkoutType {
+  CARDIO
+  STRENGTH
+  FLEXIBILITY
+  MIXED
+}
+
+model User {
+  id                 String         @id
+  email             String         @unique
+  name              String
+  profilePicture    String
+  bio               String
+  password          String
+  sports            String[]
+  level             Json           // Map<string, Level>
+  hostedSessions    SportSession[] @relation("HostedSessions")
+  participations    SportSession[] @relation("SessionParticipants")
+  teams             Team[]          @relation("TeamPlayers")
+  workoutProgress   WorkoutProgress[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Sport {
+  id               String         @id
+  name             String
+  icon             String
+  description      String
+  minPlayers       Int
+  maxPlayers       Int
+  teamsCount       Int            @default(2)
+  playersPerTeam   Int
+  indoor           Boolean
+  equipment        String[]
+  popularLocations String[]
+  sessions         SportSession[] @relation("SportSessions")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model SportSession {
+  id           String         @id
+  sport        Sport         @relation("SportSessions", fields: [sportId], references: [id])
+  sportId      String
+  host         User          @relation("HostedSessions", fields: [hostId], references: [id])
+  hostId       String
+  participants User[]        @relation("SessionParticipants")
+  teams        Team[]        // Relation avec les équipes
+  location     Json          // Complex location object
+  dateTime     DateTime
+  duration     Int           // en minutes
+  maxPlayers   Int
+  level        Level
+  description  String
+  status       SessionStatus
+  workout      Workout?      @relation(fields: [workoutId], references: [id])
+  workoutId    String?
+  price        Float?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Workout {
+  id          String           @id
+  title       String
+  description String
+  sport       String
+  duration    Int             // en minutes
+  difficulty  Difficulty
+  type        WorkoutType
+  exercises   Exercise[]
+  sessions    SportSession[]
+  progress    WorkoutProgress[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Exercise {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  duration    Int      // en minutes
+  sets        Int?
+  reps        Int?
+  restTime    Int?     // en secondes
+  workout     Workout  @relation(fields: [workoutId], references: [id])
+  workoutId   String
+}
+
+model WorkoutProgress {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  workout     Workout  @relation(fields: [workoutId], references: [id])
+  workoutId   String
+  completedAt DateTime
+  performance Int      // 0-100
+}
+
+model Team {
+  id            String      @id @default(uuid())
+  name          String
+  session       SportSession @relation(fields: [sessionId], references: [id])
+  sessionId     String
+  players       User[]      @relation("TeamPlayers")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([sessionId, name])
+}
