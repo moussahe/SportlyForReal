@@ -26,6 +26,7 @@ export interface Message {
   text: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
+  userAvatar?: string;
   attachments?: {
     type: 'image' | 'video' | 'audio';
     url: string;
@@ -58,11 +59,8 @@ export const ChatV2: React.FC<ChatV2Props> = ({
 }) => {
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
-  const recordingTimer = useRef<NodeJS.Timeout>();
   const inputHeight = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
@@ -70,24 +68,6 @@ export const ChatV2: React.FC<ChatV2Props> = ({
       flatListRef.current?.scrollToEnd({ animated: true });
     }
   }, [messages]);
-
-  useEffect(() => {
-    if (isRecording) {
-      recordingTimer.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (recordingTimer.current) {
-        clearInterval(recordingTimer.current);
-      }
-      setRecordingTime(0);
-    }
-    return () => {
-      if (recordingTimer.current) {
-        clearInterval(recordingTimer.current);
-      }
-    };
-  }, [isRecording]);
 
   const handleSend = () => {
     if (messageText.trim()) {
@@ -99,13 +79,7 @@ export const ChatV2: React.FC<ChatV2Props> = ({
   };
 
   const formatMessageTime = (timestamp: string) => {
-    return format(new Date(timestamp), 'HH:mm', { locale: fr });
-  };
-
-  const formatRecordingTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return format(new Date(timestamp), 'HH:mm');
   };
 
   const renderMessageStatus = (status: Message['status']) => {
@@ -133,8 +107,10 @@ export const ChatV2: React.FC<ChatV2Props> = ({
     );
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isOwnMessage = item.userId === userId;
+    const showAvatar = !isOwnMessage && 
+      (index === 0 || messages[index - 1]?.userId !== item.userId);
 
     return (
       <View style={[
@@ -142,16 +118,26 @@ export const ChatV2: React.FC<ChatV2Props> = ({
         isOwnMessage ? styles.ownMessageContainer : styles.otherMessageContainer
       ]}>
         {!isOwnMessage && (
-          <Image
-            source={{ uri: `https://ui-avatars.com/api/?name=${item.userName}&background=random` }}
-            style={styles.avatar}
-          />
+          <View style={styles.avatarContainer}>
+            {showAvatar ? (
+              <Image
+                source={{ 
+                  uri: item.userAvatar || 
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.userName)}&background=random&size=128` 
+                }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder} />
+            )}
+          </View>
         )}
         <View style={[
           styles.messageBubble,
-          isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble
+          isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble,
+          !showAvatar && !isOwnMessage && styles.messageWithoutAvatar
         ]}>
-          {!isOwnMessage && (
+          {(!isOwnMessage && showAvatar) && (
             <Text style={styles.userName}>{item.userName}</Text>
           )}
           {item.replyTo && renderReplyPreview(item.replyTo)}
@@ -172,13 +158,6 @@ export const ChatV2: React.FC<ChatV2Props> = ({
                     resizeMode="cover"
                   />
                   <Ionicons name="play-circle" size={40} color="white" style={styles.playIcon} />
-                </View>
-              )}
-              {attachment.type === 'audio' && (
-                <View style={styles.audioContainer}>
-                  <Ionicons name="musical-note" size={24} color={colors.text.secondary} />
-                  <View style={styles.audioProgressBar} />
-                  <Text style={styles.audioTime}>0:30</Text>
                 </View>
               )}
             </View>
@@ -258,30 +237,17 @@ export const ChatV2: React.FC<ChatV2Props> = ({
           multiline
           maxLength={1000}
         />
-        {messageText.trim() ? (
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={handleSend}
-          >
-            <Ionicons name="send" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.micButton}
-            onPress={() => setIsRecording(!isRecording)}
-          >
-            <Ionicons
-              name={isRecording ? "stop-circle" : "mic"}
-              size={24}
-              color={isRecording ? colors.status.error : colors.primary}
-            />
-            {isRecording && (
-              <Text style={styles.recordingTime}>
-                {formatRecordingTime(recordingTime)}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.sendButton}
+          onPress={handleSend}
+          disabled={!messageText.trim()}
+        >
+          <Ionicons 
+            name="send" 
+            size={24} 
+            color={messageText.trim() ? colors.primary : colors.text.light} 
+          />
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -310,12 +276,22 @@ const styles = StyleSheet.create({
   otherMessageContainer: {
     alignSelf: 'flex-start',
   },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  avatarContainer: {
+    width: 32,
+    height: 32,
     marginRight: 8,
-    alignSelf: 'flex-end',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  avatarPlaceholder: {
+    width: 32,
+    height: 32,
+  },
+  messageWithoutAvatar: {
+    marginLeft: 40,
   },
   messageBubble: {
     borderRadius: 20,
@@ -392,24 +368,6 @@ const styles = StyleSheet.create({
       { translateY: -20 }
     ],
   },
-  audioContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.light,
-    padding: 8,
-    borderRadius: 8,
-    gap: 8,
-  },
-  audioProgressBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.border.light,
-    borderRadius: 2,
-  },
-  audioTime: {
-    fontSize: 12,
-    color: colors.text.secondary,
-  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -434,16 +392,6 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     padding: 8,
-  },
-  micButton: {
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  recordingTime: {
-    fontSize: 12,
-    color: colors.status.error,
   },
   replyingToContainer: {
     flexDirection: 'row',
