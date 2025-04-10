@@ -84,6 +84,44 @@ npm run server
 npm run start
 ```
 
+## 🔧 Commandes Make
+
+Le projet utilise un Makefile pour simplifier les opérations courantes. Voici les principales commandes disponibles :
+
+### Gestion de l'Application
+
+- `make install` : Installe toutes les dépendances
+- `make start` : Démarre l'application mobile et le serveur
+- `make start-web` : Démarre l'application en mode web
+- `make stop` : Arrête tous les processus
+- `make clean` : Nettoie le projet (node_modules, builds, etc.)
+
+### Base de Données
+
+- `make db-setup` : Configure la base de données (migration + seed)
+- `make db-migrate` : Applique les migrations Prisma
+- `make db-reset` : Réinitialise la base de données
+- `make db-seed` : Génère les données de test
+- `make db-studio` : Ouvre Prisma Studio
+
+### Développement
+
+- `make dev` : Lance l'application en mode développement
+- `make dev-web` : Installation complète + démarrage web
+- `make lint` : Vérifie le code avec ESLint
+- `make test` : Lance les tests
+
+### Utilitaires
+
+- `make ports` : Liste les ports utilisés
+- `make ports-kill` : Force la fermeture des ports utilisés
+- `make help` : Affiche l'aide avec toutes les commandes disponibles
+
+Pour voir toutes les commandes disponibles :
+```bash
+make help
+```
+
 ## 📱 Utilisation
 
 ### Création d'une Session
