@@ -35,6 +35,77 @@ Application mobile de mise en relation pour les activités sportives, permettant
   - Prisma
   - PostgreSQL
 
+## 💡 Explications des Technologies
+
+### Frontend
+
+- **React Native**
+  - Framework pour créer des applications mobiles natives
+  - Permet d'écrire une seule fois le code pour iOS et Android
+  - Utilise des composants natifs pour de meilleures performances
+
+- **TypeScript**
+  - Version de JavaScript avec des types
+  - Aide à éviter les erreurs avant l'exécution
+  - Améliore l'auto-complétion dans l'éditeur
+
+- **Redux Toolkit**
+  - Gère l'état global de l'application
+  - Stocke les données des sessions, utilisateurs et chats
+  - Synchronise les données entre les écrans
+
+- **React Navigation**
+  - Gère la navigation entre les écrans
+  - Maintient l'historique de navigation
+  - Permet les transitions fluides
+
+- **Expo**
+  - Simplifie le développement React Native
+  - Fournit des outils de développement
+  - Permet de tester facilement sur mobile
+
+### Backend
+
+- **Node.js**
+  - Environnement d'exécution JavaScript
+  - Gère le serveur de l'application
+  - Traite les requêtes des utilisateurs
+
+- **Express**
+  - Framework web pour Node.js
+  - Gère les routes API
+  - Traite les requêtes HTTP
+
+- **Prisma**
+  - ORM (Object-Relational Mapping)
+  - Gère la base de données de façon type-safe
+  - Simplifie les requêtes à la base de données
+
+- **PostgreSQL**
+  - Base de données relationnelle
+  - Stocke toutes les données de l'application
+  - Gère les relations entre les données
+
+### Cas d'Utilisation
+
+1. **Création d'une Session**
+   - Frontend : Formulaire React Native
+   - Redux : Stocke la nouvelle session
+   - Express : Reçoit la requête
+   - Prisma : Sauvegarde dans PostgreSQL
+
+2. **Rejoindre une Équipe**
+   - React Navigation : Affiche l'écran de lobby
+   - Redux : Met à jour l'état
+   - Express : Traite la demande
+   - Prisma : Met à jour les relations
+
+3. **Chat en Temps Réel**
+   - React Native : Interface utilisateur
+   - Redux : Gère les messages
+   - Node.js : Traite les messages
+   - PostgreSQL : Stocke l'historique
+
 ## 🚀 Installation
 
 ### Prérequis
