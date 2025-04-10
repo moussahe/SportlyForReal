@@ -274,4 +274,4 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 Pour toute question ou suggestion, n'hésitez pas à :
 - Ouvrir une issue
-- Me contacter par email : [moussa.hechaichi@gmail.com](mailto:moussa.hechaichi@gmail.com) 
+- Me contacter par email : [moussa.he@gmail.com](mailto:moussa.he@gmail.com) 
