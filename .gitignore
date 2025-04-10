@@ -2,12 +2,13 @@
 
 # dependencies
 node_modules/
+.pnp/
+.pnp.js
 
 # Expo
 .expo/
 dist/
 web-build/
-expo-env.d.ts
 
 # Native
 *.orig.*
@@ -27,6 +28,12 @@ yarn-error.*
 
 # macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 *.pem
 
 # local env files
@@ -34,3 +41,40 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Prisma
+prisma/*.db
+prisma/migrations/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Build
+build/
+dist/
+out/
+
+# Testing
+__tests__/
+
+# Development
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
