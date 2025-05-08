@@ -89,11 +89,20 @@ const toRad = (value: number): number => {
 /**
  * Obtient la position actuelle de l'utilisateur
  * Retourne une promesse avec les coordonnées
+ * Fournit des coordonnées par défaut pour le web ou en cas d'erreur
  */
 export const getCurrentPosition = (): Promise<Coordinates> => {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("La géolocalisation n'est pas supportée par votre navigateur"));
+    // Coordonnées par défaut (Paris)
+    const defaultCoordinates: Coordinates = {
+      latitude: 48.8566,
+      longitude: 2.3522
+    };
+
+    // Sur le web ou sans API de géolocalisation, utiliser les coordonnées par défaut
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      console.log('📍 Géolocalisation non disponible, utilisation des coordonnées par défaut');
+      resolve(defaultCoordinates);
       return;
     }
 
@@ -105,7 +114,9 @@ export const getCurrentPosition = (): Promise<Coordinates> => {
         });
       },
       (error) => {
-        reject(error);
+        console.log('📍 Erreur de géolocalisation, utilisation des coordonnées par défaut', error);
+        // Au lieu de rejeter, on résout avec des coordonnées par défaut
+        resolve(defaultCoordinates);
       },
       {
         enableHighAccuracy: true,
@@ -124,4 +135,4 @@ export const formatDistance = (distance: number): string => {
     return `${Math.round(distance * 1000)} m`;
   }
   return `${Math.round(distance * 10) / 10} km`;
-}; 
+};

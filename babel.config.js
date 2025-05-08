@@ -16,7 +16,6 @@ module.exports = function (api) {
             '@store': './src/store',
             '@utils': './src/utils',
             '@assets': './assets',
-            'react-native': 'react-native-web',
           },
         },
       ],
@@ -24,4 +23,4 @@ module.exports = function (api) {
       '@babel/plugin-proposal-export-namespace-from',
     ],
   };
-}; 
+};
