@@ -10,6 +10,17 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Middleware temporaire pour simuler un utilisateur authentifié
+// À remplacer par une vraie authentification plus tard
+app.use((req, res, next) => {
+  // Simuler un utilisateur connecté pour les besoins de développement
+  req.user = {
+    id: '7c7d0616-f0b1-4c1d-ae6a-bf7bd5113d91', // ID d'un utilisateur existant dans la DB
+    email: 'Claude.Hubert@example.com'
+  };
+  next();
+});
+
 // Route racine
 app.get('/', (req, res) => {
   res.json({ message: 'Bienvenue sur l\'API Sportly' });
@@ -394,11 +405,9 @@ app.get('/api/sessions/:sessionId', async (req, res) => {
     });
 
     if (!session) {
-      console.log('Session non trouvée:', sessionId);
       return res.status(404).json({ error: 'Session non trouvée' });
     }
 
-    console.log('Session trouvée:', session);
     res.json(session);
   } catch (error) {
     console.error('Erreur /api/sessions/:sessionId:', error);
@@ -494,4 +503,4 @@ app.use((req: express.Request, res: express.Response) => {
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 app.listen(port, '0.0.0.0', () => {
   console.log(`Serveur en cours d'exécution sur http://0.0.0.0:${port}`);
-}); 
+});

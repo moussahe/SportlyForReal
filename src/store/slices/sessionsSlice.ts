@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { Session, User } from '../../types';
 import { API_URL } from '../../config';
+import { RootState } from '../store';
 
 interface SessionsState {
   sessions: Session[] | null;
@@ -13,6 +14,23 @@ interface JoinSessionPayload {
   sessionId: string;
   userId: string;
   teamId: string;
+}
+
+interface CreateSessionPayload {
+  sport: any;
+  dateTime: string;
+  location: {
+    address: string;
+    city?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  maxPlayers: number;
+  level: string;
+  description: string;
+  duration: number;
 }
 
 export const fetchSessions = createAsyncThunk(
@@ -71,6 +89,43 @@ export const leaveSession = createAsyncThunk(
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erreur lors du départ de la session');
+    }
+
+    return response.json();
+  }
+);
+
+export const createSession = createAsyncThunk(
+  'sessions/createSession',
+  async (sessionData: CreateSessionPayload, { getState }) => {
+    // Obtention de l'ID de l'utilisateur connecté
+    const state = getState() as RootState;
+    const hostId = state.user.currentUser?.id || '7c7d0616-f0b1-4c1d-ae6a-bf7bd5113d91'; // ID par défaut en dev
+
+    // Préparation des données selon le format attendu par l'API
+    const payload = {
+      sportId: sessionData.sport.id,
+      hostId: hostId,
+      location: sessionData.location,
+      dateTime: sessionData.dateTime,
+      duration: sessionData.duration,
+      maxPlayers: sessionData.maxPlayers,
+      level: sessionData.level,
+      description: sessionData.description,
+    };
+
+    const response = await fetch(`${API_URL}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      credentials: 'include', // Pour inclure les cookies d'authentification
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Erreur lors de la création de la session');
     }
 
     return response.json();
@@ -158,9 +213,29 @@ const sessionsSlice = createSlice({
       .addCase(leaveSession.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Une erreur est survenue';
+      })
+      // Create session
+      .addCase(createSession.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createSession.fulfilled, (state, action) => {
+        state.loading = false;
+        // Ajouter la session nouvellement créée à la liste des sessions
+        if (state.sessions) {
+          state.sessions = [...state.sessions, action.payload];
+        } else {
+          state.sessions = [action.payload];
+        }
+        // Définir la session créée comme session courante
+        state.currentSession = action.payload;
+      })
+      .addCase(createSession.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Erreur lors de la création de la session';
       });
   },
 });
 
 export const { clearCurrentSession } = sessionsSlice.actions;
-export default sessionsSlice.reducer; 
+export default sessionsSlice.reducer;
