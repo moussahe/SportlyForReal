@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, SafeAreaView } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,12 @@ import { logout } from '../../store/slices/userSlice';
 export const ProfileScreen = () => {
   const dispatch = useDispatch();
   const { currentUser } = useSelector((state: RootState) => state.user);
-  const { userProgress } = useSelector((state: RootState) => state.workout);
+  
+  // Données temporaires au lieu de state.workout qui n'existe pas encore
+  const userStats = {
+    sessionsCompleted: 0,
+    totalMinutes: 0
+  };
 
   const handleLogout = () => {
     dispatch(logout());
@@ -16,70 +21,78 @@ export const ProfileScreen = () => {
 
   if (!currentUser) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Connectez-vous</Text>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Se connecter</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Connectez-vous</Text>
+          <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Se connecter</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.screen}>
-      <View style={styles.header}>
-        <Image
-          source={{ uri: currentUser.profilePicture || 'https://via.placeholder.com/150' }}
-          style={styles.profilePicture}
-        />
-        <Text style={styles.name}>{currentUser.name}</Text>
-        <Text style={styles.email}>{currentUser.email}</Text>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {userProgress.filter(p => p.completed).length}
-          </Text>
-          <Text style={styles.statLabel}>Séances terminées</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.screen}>
+        <View style={styles.header}>
+          <Image
+            source={{ uri: currentUser.profilePicture || 'https://via.placeholder.com/150' }}
+            style={styles.profilePicture}
+          />
+          <Text style={styles.name}>{currentUser.name}</Text>
+          <Text style={styles.email}>{currentUser.email}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {userProgress.reduce((acc, curr) => acc + curr.duration, 0)}
-          </Text>
-          <Text style={styles.statLabel}>Minutes totales</Text>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>
+              {userStats.sessionsCompleted}
+            </Text>
+            <Text style={styles.statLabel}>Séances terminées</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>
+              {userStats.totalMinutes}
+            </Text>
+            <Text style={styles.statLabel}>Minutes totales</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="settings-outline" size={24} color="#666" />
-          <Text style={styles.menuText}>Paramètres</Text>
-          <Ionicons name="chevron-forward" size={24} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="settings-outline" size={24} color="#666" />
+            <Text style={styles.menuText}>Paramètres</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="notifications-outline" size={24} color="#666" />
-          <Text style={styles.menuText}>Notifications</Text>
-          <Ionicons name="chevron-forward" size={24} color="#666" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="notifications-outline" size={24} color="#666" />
+            <Text style={styles.menuText}>Notifications</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="help-circle-outline" size={24} color="#666" />
-          <Text style={styles.menuText}>Aide</Text>
-          <Ionicons name="chevron-forward" size={24} color="#666" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="help-circle-outline" size={24} color="#666" />
+            <Text style={styles.menuText}>Aide</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-          <Text style={styles.logoutText}>Se déconnecter</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+            <Text style={styles.logoutText}>Se déconnecter</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   screen: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -92,8 +105,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingTop: 40,
   },
   profilePicture: {
     width: 100,
@@ -185,4 +197,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-}); 
+});

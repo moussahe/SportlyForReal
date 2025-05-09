@@ -31,7 +31,7 @@ export const colors = {
   level: {
     beginner: '#4ECDC4',
     intermediate: '#FFD93D',
-    advanced: '#FF6B6B',
+    advanced: '#E17055', // Changé de #FF6B6B à #E17055 pour diversifier la palette
   },
   
   // Couleurs des états de session
@@ -39,7 +39,7 @@ export const colors = {
     upcoming: '#74B9FF',
     inProgress: '#00B894',
     completed: '#B2BEC3',
-    cancelled: '#FF7675',
+    cancelled: '#D63031', // Changé de #FF6B6B à #D63031 pour diversifier la palette
   },
   
   // Couleurs des boutons
@@ -65,4 +65,4 @@ export const colors = {
 
 export type Colors = typeof colors;
 
-export default colors; 
+export default colors;

@@ -3,22 +3,13 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Ajout du support pour les fichiers web
-config.resolver.sourceExts.push('jsx', 'js', 'ts', 'tsx', 'json');
+// Passez de true à false
+config.resolver.unstable_enablePackageExports = false;
 
-// Configuration pour le web
-config.transformer.minifierPath = 'metro-minify-terser';
+// (le reste peut rester tel quel)
+config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, 'node_modules'),
+];
+config.watchFolders = [path.resolve(__dirname)];
 
-// Alias pour les imports
-config.resolver.alias = {
-  '@': path.resolve(__dirname, 'src'),
-  '@components': path.resolve(__dirname, 'src/components'),
-  '@screens': path.resolve(__dirname, 'src/screens'),
-  '@navigation': path.resolve(__dirname, 'src/navigation'),
-  '@store': path.resolve(__dirname, 'src/store'),
-  '@utils': path.resolve(__dirname, 'src/utils'),
-  '@assets': path.resolve(__dirname, 'assets'),
-  'react-native$': 'react-native-web',
-};
-
-module.exports = config; 
+module.exports = config;

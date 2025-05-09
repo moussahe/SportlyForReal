@@ -82,7 +82,7 @@ start-server:
 	@echo "$(BLUE)║        DÉMARRAGE DU SERVEUR           ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════╝$(NC)"
 	@echo "$(YELLOW)→ Le serveur démarrera sur: $(NC)http://localhost:$(API_PORT)"
-	npm run dev:server &
+	npx ts-node --transpile-only backend/server.ts &
 
 # Arrêt de l'application
 stop: ports-kill
@@ -192,4 +192,4 @@ help:
 	@echo "  make db-migrate : Applique les migrations"
 	@echo "  make db-reset   : Réinitialise la base de données"
 	@echo "  make db-seed    : Génère les données de test"
-	@echo "  make db-studio  : Ouvre Prisma Studio" 
+	@echo "  make db-studio  : Ouvre Prisma Studio"
