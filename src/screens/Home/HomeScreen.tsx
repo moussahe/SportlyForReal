@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Animated,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -56,44 +57,122 @@ const SearchBar: React.FC<{ onSearch: (text: string) => void }> = ({ onSearch })
   </View>
 );
 
-const FilterButtons: React.FC<{ onFilter: (filter: string) => void, activeFilter: string }> = ({ onFilter, activeFilter }) => (
-  <View style={styles.filterContainer}>
-    <TouchableOpacity 
-      style={[styles.filterButton, activeFilter === 'nearby' && styles.filterButtonActive]}
-      onPress={() => onFilter('nearby')}
+const FilterButtons: React.FC<{ 
+  onFilter: (filter: string) => void, 
+  activeFilter: string,
+  onSportFilter?: (sportId: string | null) => void,
+  selectedSport?: string | null,
+  sportsList?: { id: string, name: string, icon: string }[],
+  onToggleSportDropdown?: () => void,
+  showSportDropdown?: boolean
+}> = ({ 
+  onFilter, 
+  activeFilter, 
+  onSportFilter, 
+  selectedSport, 
+  sportsList, 
+  onToggleSportDropdown,
+  showSportDropdown 
+}) => (
+  <View>
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false} 
+      contentContainerStyle={styles.filterContainerScrollable}
     >
-      <Ionicons 
-        name="location-outline" 
-        size={18} 
-        color={activeFilter === 'nearby' ? 'white' : colors.text.secondary} 
-        style={styles.filterIcon} 
-      />
-      <Text style={[styles.filterButtonText, activeFilter === 'nearby' && styles.filterButtonTextActive]}>À proximité</Text>
-    </TouchableOpacity>
-    <TouchableOpacity 
-      style={[styles.filterButton, activeFilter === 'today' && styles.filterButtonActive]}
-      onPress={() => onFilter('today')}
-    >
-      <Ionicons 
-        name="calendar-outline" 
-        size={18} 
-        color={activeFilter === 'today' ? 'white' : colors.text.secondary} 
-        style={styles.filterIcon} 
-      />
-      <Text style={[styles.filterButtonText, activeFilter === 'today' && styles.filterButtonTextActive]}>Aujourd'hui</Text>
-    </TouchableOpacity>
-    <TouchableOpacity 
-      style={[styles.filterButton, activeFilter === 'popular' && styles.filterButtonActive]}
-      onPress={() => onFilter('popular')}
-    >
-      <Ionicons 
-        name="star-outline" 
-        size={18} 
-        color={activeFilter === 'popular' ? 'white' : colors.text.secondary} 
-        style={styles.filterIcon} 
-      />
-      <Text style={[styles.filterButtonText, activeFilter === 'popular' && styles.filterButtonTextActive]}>Populaire</Text>
-    </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.filterButton, activeFilter === 'nearby' && styles.filterButtonActive]}
+        onPress={() => onFilter('nearby')}
+      >
+        <Ionicons 
+          name="location-outline" 
+          size={18} 
+          color={activeFilter === 'nearby' ? 'white' : colors.text.secondary} 
+          style={styles.filterIcon} 
+        />
+        <Text style={[styles.filterButtonText, activeFilter === 'nearby' && styles.filterButtonTextActive]}>À proximité</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.filterButton, activeFilter === 'today' && styles.filterButtonActive]}
+        onPress={() => onFilter('today')}
+      >
+        <Ionicons 
+          name="calendar-outline" 
+          size={18} 
+          color={activeFilter === 'today' ? 'white' : colors.text.secondary} 
+          style={styles.filterIcon} 
+        />
+        <Text style={[styles.filterButtonText, activeFilter === 'today' && styles.filterButtonTextActive]}>Aujourd'hui</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.filterButton, activeFilter === 'popular' && styles.filterButtonActive]}
+        onPress={() => onFilter('popular')}
+      >
+        <Ionicons 
+          name="star-outline" 
+          size={18} 
+          color={activeFilter === 'popular' ? 'white' : colors.text.secondary} 
+          style={styles.filterIcon} 
+        />
+        <Text style={[styles.filterButtonText, activeFilter === 'popular' && styles.filterButtonTextActive]}>Populaire</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.filterButton, selectedSport && styles.filterButtonActive]}
+        onPress={onToggleSportDropdown}
+      >
+        <Ionicons 
+          name="football-outline" 
+          size={18} 
+          color={selectedSport ? 'white' : colors.text.secondary} 
+          style={styles.filterIcon} 
+        />
+        <Text style={[styles.filterButtonText, selectedSport && styles.filterButtonTextActive]}>
+          {selectedSport ? 'Sport' : 'Sport'}
+        </Text>
+        <Ionicons 
+          name={showSportDropdown ? "chevron-up" : "chevron-down"} 
+          size={16} 
+          color={selectedSport ? 'white' : colors.text.secondary} 
+          style={{ marginLeft: 4 }}
+        />
+      </TouchableOpacity>
+    </ScrollView>
+    
+    {showSportDropdown && sportsList && (
+      <View style={styles.sportDropdown}>
+        <TouchableOpacity 
+          style={styles.sportDropdownItem} 
+          onPress={() => onSportFilter && onSportFilter(null)}
+        >
+          <Text style={[
+            styles.sportDropdownText, 
+            !selectedSport && styles.sportDropdownTextSelected
+          ]}>
+            Tous les sports
+          </Text>
+          {!selectedSport && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+        </TouchableOpacity>
+        
+        {sportsList.map(sport => (
+          <TouchableOpacity 
+            key={sport.id}
+            style={styles.sportDropdownItem} 
+            onPress={() => onSportFilter && onSportFilter(sport.id)}
+          >
+            <View style={styles.sportDropdownItemContent}>
+              <Text style={styles.sportIcon}>{sport.icon}</Text>
+              <Text style={[
+                styles.sportDropdownText,
+                selectedSport === sport.id && styles.sportDropdownTextSelected
+              ]}>
+                {sport.name}
+              </Text>
+            </View>
+            {selectedSport === sport.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+          </TouchableOpacity>
+        ))}
+      </View>
+    )}
   </View>
 );
 
@@ -230,6 +309,10 @@ export const HomeScreen: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<string>('nearby');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cardAnimation] = useState(new Animated.Value(0));
+  
+  // Nouveaux états pour le filtre par sport
+  const [selectedSport, setSelectedSport] = useState<string | null>(null);
+  const [showSportDropdown, setShowSportDropdown] = useState<boolean>(false);
 
   useEffect(() => {
     if (sessions && !loading) {
@@ -270,9 +353,7 @@ export const HomeScreen: React.FC = () => {
 
   const loadSessions = async () => {
     try {
-      console.log('🔄 Chargement des sessions...');
       const result = await dispatch(fetchSessions()).unwrap();
-      console.log('✅ Sessions chargées:', result);
     } catch (err) {
       console.error('❌ Erreur lors du chargement des sessions:', err);
     }
@@ -290,7 +371,6 @@ export const HomeScreen: React.FC = () => {
   }, [dispatch]);
 
   const handleSessionPress = (sessionId: string) => {
-    console.log('👆 Session sélectionnée:', sessionId);
     navigation.navigate('Lobby', { sessionId });
   };
 
@@ -314,6 +394,28 @@ export const HomeScreen: React.FC = () => {
     }
 
     return sessionsWithDistance;
+  };
+
+  // Fonction pour extraire les sports uniques des sessions
+  const getUniqueSports = (sessions: Session[]): { id: string, name: string, icon: string }[] => {
+    if (!sessions || sessions.length === 0) return [];
+
+    // Utilisez un Set pour stocker les ID des sports uniques
+    const uniqueSportIds = new Set<string>();
+    const uniqueSports: { id: string, name: string, icon: string }[] = [];
+
+    sessions.forEach(session => {
+      if (session.sport && !uniqueSportIds.has(session.sport.id)) {
+        uniqueSportIds.add(session.sport.id);
+        uniqueSports.push({
+          id: session.sport.id,
+          name: session.sport.name,
+          icon: session.sport.icon
+        });
+      }
+    });
+
+    return uniqueSports;
   };
 
   const filteredSessions = (sessionsWithDistance: SessionWithDistance[]): SessionWithDistance[] => {
@@ -352,6 +454,11 @@ export const HomeScreen: React.FC = () => {
         break;
     }
     
+    // Filtre par sport
+    if (selectedSport) {
+      filtered = filtered.filter(session => session.sport.id === selectedSport);
+    }
+
     return filtered;
   };
 
@@ -361,6 +468,15 @@ export const HomeScreen: React.FC = () => {
   
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
+  };
+
+  const handleSportFilterChange = (sportId: string | null) => {
+    setSelectedSport(sportId);
+    setShowSportDropdown(false);
+  };
+
+  const toggleSportDropdown = () => {
+    setShowSportDropdown(!showSportDropdown);
   };
 
   if (loading && !refreshing) {
@@ -399,6 +515,7 @@ export const HomeScreen: React.FC = () => {
 
   const sessionsWithDistance = getSessionsWithDistance(sessions);
   const filteredSessionsList = filteredSessions(sessionsWithDistance);
+  const sportsList = getUniqueSports(sessions || []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -431,7 +548,15 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       <SearchBar onSearch={handleSearchChange} />
-      <FilterButtons onFilter={handleFilterChange} activeFilter={activeFilter} />
+      <FilterButtons 
+        onFilter={handleFilterChange} 
+        activeFilter={activeFilter} 
+        onSportFilter={handleSportFilterChange}
+        selectedSport={selectedSport}
+        sportsList={sportsList}
+        onToggleSportDropdown={toggleSportDropdown}
+        showSportDropdown={showSportDropdown}
+      />
 
       {(!filteredSessionsList || filteredSessionsList.length === 0) ? (
         <View style={styles.centerContent}>
@@ -531,7 +656,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 16,
-    marginVertical: 12,
+    marginVertical: 8,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -555,14 +680,13 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     height: 50,
   },
-  filterContainer: {
+  filterContainerScrollable: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginVertical: 12,
+    marginTop: 8,
+    marginBottom: 8,
   },
   filterButton: {
-    flex: 1,
     flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -646,7 +770,8 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-    paddingBottom: 0, // Supprime complètement le padding du bas
+    paddingTop: 8,
+    paddingBottom: 0,
   },
   card: {
     backgroundColor: 'white',
@@ -836,6 +961,37 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     marginLeft: 8,
+  },
+  sportDropdown: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sportDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  sportDropdownItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sportDropdownText: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  sportDropdownTextSelected: {
+    fontWeight: '600',
+    color: colors.primary,
   },
 } as const);
 
