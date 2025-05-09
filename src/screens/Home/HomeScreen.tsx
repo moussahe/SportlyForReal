@@ -12,7 +12,6 @@ import {
   RefreshControl,
   Animated,
   StatusBar,
-  Dimensions
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
