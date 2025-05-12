@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { Sport } from '../../types';
-import { API_URL } from '../../config';
+import { EXPO_PUBLIC_API_URL  } from '../../config';
 
 interface SportsState {
   sports: Sport[] | null;
@@ -12,8 +12,8 @@ export const fetchSports = createAsyncThunk(
   'sports/fetchSports',
   async () => {
     try {
-      console.log(`Fetching sports from: ${API_URL}/sports`);
-      const response = await fetch(`${API_URL}/sports`);
+      console.log(`Fetching sports from: ${EXPO_PUBLIC_API_URL }/sports`);
+      const response = await fetch(`${EXPO_PUBLIC_API_URL }/sports`);
       
       console.log('Response status:', response.status);
       

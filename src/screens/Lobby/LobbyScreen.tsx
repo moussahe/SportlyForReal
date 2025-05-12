@@ -14,7 +14,7 @@
  * @component LobbyScreen
  * @route /lobby/:sessionId
  * @uses LinearGradient - Pour les effets visuels dégradés
- * @uses API_URL - Pour la récupération des données de session
+ * @uses EXPO_PUBLIC_API_URL  - Pour la récupération des données de session
  * @theme Utilise les couleurs thématiques : #F78800, #FFB65C, #FFE0BA, #FFF2E3
  */
 

@@ -5,5 +5,5 @@
  */
 
 // Re-exporte la configuration depuis le fichier principal
-import { CONFIG, API_URL } from '../config';
-export { CONFIG, API_URL };
+import { CONFIG, EXPO_PUBLIC_API_URL  } from '../config';
+export { CONFIG, EXPO_PUBLIC_API_URL  };

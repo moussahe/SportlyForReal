@@ -33,10 +33,10 @@ const getApiUrl = (): string => {
   return 'https://api.sportly.com';
 };
 
-export const API_URL = getApiUrl();
+export const EXPO_PUBLIC_API_URL = getApiUrl();
 
 export const CONFIG = {
-  API_URL,
+  EXPO_PUBLIC_API_URL,
   APP_VERSION: Constants.expoConfig?.version || '1.0.0',
   DEFAULT_TIMEOUT: 10000,
 };

@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { Session, User } from '../../types';
-import { API_URL } from '../../config';
+import { EXPO_PUBLIC_API_URL  } from '../../config';
 import { RootState } from '../store';
 
 interface SessionsState {
@@ -37,8 +37,8 @@ export const fetchSessions = createAsyncThunk(
   'sessions/fetchSessions',
   async () => {
     try {
-      console.log(`Fetching sessions from: ${API_URL}/sessions`);
-      const response = await fetch(`${API_URL}/sessions`);
+      console.log(`Fetching sessions from: ${EXPO_PUBLIC_API_URL }/sessions`);
+      const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions`);
       
       
       if (!response.ok) {
@@ -60,7 +60,7 @@ export const fetchSessions = createAsyncThunk(
 export const fetchSessionById = createAsyncThunk(
   'sessions/fetchSessionById',
   async (sessionId: string) => {
-    const response = await fetch(`${API_URL}/sessions/${sessionId}`);
+    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}`);
     if (!response.ok) {
       throw new Error('Session non trouvée');
     }
@@ -71,7 +71,7 @@ export const fetchSessionById = createAsyncThunk(
 export const joinSession = createAsyncThunk(
   'sessions/joinSession',
   async ({ sessionId, userId, teamId }: JoinSessionPayload) => {
-    const response = await fetch(`${API_URL}/sessions/${sessionId}/join`, {
+    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}/join`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,7 +91,7 @@ export const joinSession = createAsyncThunk(
 export const leaveSession = createAsyncThunk(
   'sessions/leaveSession',
   async ({ sessionId, userId, teamId }: JoinSessionPayload) => {
-    const response = await fetch(`${API_URL}/sessions/${sessionId}/leave`, {
+    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}/leave`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -127,7 +127,7 @@ export const createSession = createAsyncThunk(
       description: sessionData.description,
     };
 
-    const response = await fetch(`${API_URL}/sessions`, {
+    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
