@@ -148,12 +148,9 @@ const ActiveSessionScreen: React.FC = () => {
             <Text style={styles.sportEmoji}>{session.sport.icon}</Text>
           </View>
           <View>
-            <Text style={styles.title}>La session {session.sport.name} commence</Text>
+            <Text style={styles.title}>La session {session.sport.name} commence !</Text>
             <Text style={styles.subtitle}>{session.location.address}</Text>
           </View>
-        </View>
-        <View style={styles.sessionStatus}>
-          <Text style={styles.statusText}>EN COURS</Text>
         </View>
       </View>
 
@@ -208,7 +205,7 @@ const ActiveSessionScreen: React.FC = () => {
               Cette session se terminera automatiquement dans {formatRemainingTime(countdown)}.
             </Text>
             <Text style={styles.infoText}>
-              Bonne partie ! N'oubliez pas de noter les participants à la fin de la session.
+              Bonne partie !
             </Text>
           </View>
         </View>

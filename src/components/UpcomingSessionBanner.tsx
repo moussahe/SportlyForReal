@@ -87,12 +87,24 @@ const UpcomingSessionBanner: React.FC<UpcomingSessionBannerProps> = ({ session, 
 
       // Vibration + pulse *uniquement* dans les 2 dernières minutes
       if (minutesRemaining <= 2 && minutesRemaining > 0) {
-        Vibration.vibrate([0, 300, 150, 300]);
-
-        Animated.sequence([
-          Animated.timing(slideAnim, { toValue: -3, duration: 100, useNativeDriver: true }),
-          Animated.timing(slideAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
-        ]).start();
+        // Variable pour stocker l'indicateur de seconde pour la vibration
+        const currentSecond = new Date().getSeconds();
+        
+        // Réduire la fréquence de vibration en fonction du temps restant:
+        // - Entre 2 et 1 min: vibrer toutes les 15 secondes (0, 15, 30, 45)
+        // - Moins d'une minute: vibrer toutes les 10 secondes (0, 10, 20, 30, 40, 50)
+        const shouldVibrate = 
+          (minutesRemaining > 1 && currentSecond % 15 === 0) || 
+          (minutesRemaining <= 1 && currentSecond % 10 === 0);
+        
+        if (shouldVibrate) {
+          Vibration.vibrate([0, 300, 150, 300]);
+          
+          Animated.sequence([
+            Animated.timing(slideAnim, { toValue: -3, duration: 100, useNativeDriver: true }),
+            Animated.timing(slideAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+          ]).start();
+        }
 
         Animated.loop(
           Animated.sequence([
