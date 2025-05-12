@@ -13,9 +13,7 @@ import {
   Animated,
   StatusBar,
   ScrollView,
-  Modal,
   TouchableWithoutFeedback,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -29,6 +27,7 @@ import colors from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -51,10 +50,10 @@ interface SessionCardProps {
 const SearchBar: React.FC<{ onSearch: (text: string) => void }> = ({ onSearch }) => (
   <View style={styles.searchContainer}>
     <View style={styles.searchInputWrapper}>
-      <Ionicons name="search-outline" size={20} color={colors.text.light} style={styles.searchIcon} />
+      <Ionicons name="search-outline" size={20} color={colors.primary} style={styles.searchIcon} />
       <TextInput
         style={styles.searchInput}
-        placeholder="Rechercher par lieu..."
+        placeholder="Rechercher par adresse..."
         onChangeText={onSearch}
         placeholderTextColor={colors.text.light}
       />
@@ -109,7 +108,7 @@ const FilterButtons: React.FC<{
         />
         <Text style={[styles.filterButtonText, activeFilter === 'today' && styles.filterButtonTextActive]}>Aujourd'hui</Text>
       </TouchableOpacity>
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         style={[styles.filterButton, activeFilter === 'popular' && styles.filterButtonActive]}
         onPress={() => onFilter('popular')}
       >
@@ -120,7 +119,7 @@ const FilterButtons: React.FC<{
           style={styles.filterIcon} 
         />
         <Text style={[styles.filterButtonText, activeFilter === 'popular' && styles.filterButtonTextActive]}>Populaire</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
       <View style={styles.sportFilterContainer}>
         <TouchableOpacity 
           style={[styles.filterButton, selectedSport && styles.filterButtonActive]}
@@ -193,8 +192,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onPress }) => {
   
   const handlePressIn = () => {
     Animated.spring(animatedScale, {
-      toValue: 0.98,
-      friction: 8,
+      toValue: 0.97,
+      friction: 7,
       tension: 40,
       useNativeDriver: true,
     }).start();
@@ -203,14 +202,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onPress }) => {
   const handlePressOut = () => {
     Animated.spring(animatedScale, {
       toValue: 1,
-      friction: 3,
+      friction: 4,
       tension: 40,
       useNativeDriver: true,
     }).start();
   };
   
   return (
-    <Animated.View style={{ transform: [{ scale: animatedScale }] }}>
+    <Animated.View style={[styles.cardWrapper, { transform: [{ scale: animatedScale }] }]}>
       <TouchableOpacity 
         style={styles.card} 
         onPress={onPress}
@@ -321,6 +320,7 @@ export const HomeScreen: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<string>('nearby');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cardAnimation] = useState(new Animated.Value(0));
+  const [isLocating, setIsLocating] = useState<boolean>(false);
   
   // Nouveaux états pour le filtre par sport
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
@@ -330,7 +330,7 @@ export const HomeScreen: React.FC = () => {
     if (sessions && !loading) {
       Animated.timing(cardAnimation, {
         toValue: 1,
-        duration: 500,
+        duration: 700,
         useNativeDriver: true,
         delay: 100,
       }).start();
@@ -349,9 +349,42 @@ export const HomeScreen: React.FC = () => {
     }, [])
   );
 
-  const initializeLocation = async () => {
+  // Récupère la dernière position connue du stockage local
+  const getStoredLocation = async (): Promise<Coordinates | null> => {
     try {
-      // Vérifier si la permission est déjà accordée, sinon la demander
+      const storedLocation = await AsyncStorage.getItem('lastKnownLocation');
+      if (storedLocation) {
+        return JSON.parse(storedLocation);
+      }
+      return null;
+    } catch (error) {
+      console.log('Erreur lors de la récupération de la position stockée:', error);
+      return null;
+    }
+  };
+
+  // Stocke la dernière position connue
+  const storeLocation = async (location: Coordinates) => {
+    try {
+      await AsyncStorage.setItem('lastKnownLocation', JSON.stringify(location));
+    } catch (error) {
+      console.log('Erreur lors du stockage de la position:', error);
+    }
+  };
+
+  const initializeLocation = async () => {
+    // Éviter les requêtes multiples simultanées de localisation
+    if (isLocating) return;
+    setIsLocating(true);
+    
+    try {
+      // Vérifier rapidement si nous avons déjà une position en cache pour l'afficher immédiatement
+      const lastLocation = await getStoredLocation();
+      if (lastLocation && !userLocation) {
+        console.log('📍 Utilisation de la dernière position connue en attendant mise à jour...');
+        setUserLocation(lastLocation);
+      }
+      
       const { status } = await Location.getForegroundPermissionsAsync();
       
       // Si la permission n'est pas accordée, on la demande explicitement
@@ -360,18 +393,35 @@ export const HomeScreen: React.FC = () => {
         const permissionResult = await requestLocationPermission();
         if (!permissionResult) {
           setLocationError("L'accès à votre localisation est nécessaire pour afficher les sessions à proximité.");
+          setIsLocating(false);
           return;
         }
       }
       
-      // Une fois la permission accordée, on récupère la position
-      const position = await getCurrentPosition();
-      console.log('✅ Position obtenue:', position);
-      setUserLocation(position.coords); // Stocke uniquement les coordonnées, pas l'objet entier
-      setLocationError(null);
+      const positionPromise = getCurrentPosition();
+      
+      const timeoutPromise = new Promise<any>((_, reject) => 
+        setTimeout(() => reject(new Error('Délai dépassé pour obtenir la position')), 3000)
+      );
+      
+      const position = await Promise.race([positionPromise, timeoutPromise])
+        .catch(error => {
+          console.log('Délai dépassé pour la localisation, utilisation de la dernière position connue:', error);
+          return lastLocation ? { coords: lastLocation, permissionGranted: true } : null;
+        });
+
+      if (position && position.coords) {
+        console.log('✅ Position obtenue:', position);
+        setUserLocation(position.coords);
+        setLocationError(null);
+        
+        storeLocation(position.coords);
+      }
     } catch (error) {
       console.error('❌ Erreur de géolocalisation:', error);
       setLocationError("Impossible d'obtenir votre position. Vérifiez vos paramètres de localisation.");
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -805,18 +855,21 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 0,
   },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
+  cardWrapper: {
+    borderRadius: 25,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 25,
+    padding: 16,
     flexDirection: 'row',
-    overflow: 'hidden',
   },
   sportBadge: {
     backgroundColor: "white",

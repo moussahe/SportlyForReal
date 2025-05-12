@@ -269,7 +269,7 @@ export const CreateSessionScreen = () => {
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={24} color={colors.text.primary} />
+              <Ionicons name="close" size={24} color={colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Créer une session</Text>
             <View style={styles.placeholder} />
