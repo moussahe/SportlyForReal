@@ -40,6 +40,7 @@ import { fetchSessionById, joinSession, leaveSession, clearCurrentSession } from
 import { RootState, AppDispatch } from '../../store/store';
 import { RootStackParamList } from '../../navigation/MainStack';
 import { formatDate } from '../../utils/dateUtils';
+import { isTeamLocked } from '../../utils/sessionUtils';
 import colors from '../../theme/colors';
 import { ChatSection } from '../../components/Chat/ChatSection';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +56,7 @@ interface TeamDisplayProps {
   onJoinTeam?: () => void;
   onLeaveTeam?: () => void;
   isLoading?: boolean;
+  isTeamLeaveDisabled?: boolean;
 }
 
 const TeamDisplay: React.FC<TeamDisplayProps> = ({ 
@@ -64,7 +66,8 @@ const TeamDisplay: React.FC<TeamDisplayProps> = ({
   currentUserId,
   onJoinTeam,
   onLeaveTeam,
-  isLoading
+  isLoading,
+  isTeamLeaveDisabled = false
 }) => {
   const isUserInTeam = players?.some(player => player.id === currentUserId);
   const animatedScale = useState(new Animated.Value(1))[0];
@@ -117,18 +120,24 @@ const TeamDisplay: React.FC<TeamDisplayProps> = ({
         {isUserInTeam ? (
           <Animated.View style={{ transform: [{ scale: animatedScale }] }}>
             <TouchableOpacity 
-              style={[styles.teamButton, styles.leaveTeamButton]} 
+              style={[
+                styles.teamButton, 
+                styles.leaveTeamButton,
+                isTeamLeaveDisabled && styles.disabledButton
+              ]} 
               onPress={onLeaveTeam}
-              disabled={isLoading}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
+              disabled={isLoading || isTeamLeaveDisabled}
+              onPressIn={!isTeamLeaveDisabled ? handlePressIn : undefined}
+              onPressOut={!isTeamLeaveDisabled ? handlePressOut : undefined}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color={colors.text.white} />
               ) : (
                 <>
-                  <Ionicons name="exit-outline" size={18} color={colors.text.white} style={{ marginRight: 6 }} />
-                  <Text style={styles.leaveTeamButtonText}>Quitter l'équipe</Text>
+                  <Ionicons name="exit-outline" size={18} color={isTeamLeaveDisabled ? 'rgba(255,255,255,0.5)' : colors.text.white} style={{ marginRight: 6 }} />
+                  <Text style={[styles.leaveTeamButtonText, isTeamLeaveDisabled && styles.disabledButtonText]}>
+                    {isTeamLeaveDisabled ? "Équipe verrouillée" : "Quitter l'équipe"}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -169,6 +178,26 @@ export const LobbyScreen = () => {
   const [isJoiningTeam, setIsJoiningTeam] = useState<string | null>(null);
   const [isLeavingTeam, setIsLeavingTeam] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [isTeamLeaveDisabled, setIsTeamLeaveDisabled] = useState<boolean>(false);
+  
+  // Vérifier si les équipes sont verrouillées (1 heure avant le début de la session)
+  useEffect(() => {
+    if (currentSession) {
+      const teamLockStatus = isTeamLocked(currentSession);
+      setIsTeamLeaveDisabled(teamLockStatus.isTeamLocked);
+      
+      // Si les équipes sont verrouillées, afficher une alerte une seule fois
+      if (teamLockStatus.isTeamLocked) {
+        if (teamLockStatus.minutesRemaining > 0) {
+          Alert.alert(
+            "Équipes verrouillées",
+            `Les équipes sont maintenant verrouillées car la session commence dans moins d'une heure. Vous ne pouvez plus quitter votre équipe.`,
+            [{ text: "Compris" }]
+          );
+        }
+      }
+    }
+  }, [currentSession]);
 
   useEffect(() => {
     console.log('🔄 Chargement de la session:', route.params.sessionId);
@@ -219,6 +248,16 @@ export const LobbyScreen = () => {
 
   const handleLeaveTeam = async (teamId: string) => {
     if (!currentUser || !currentSession) {
+      return;
+    }
+    
+    // Vérifier si les équipes sont verrouillées
+    const teamLockStatus = isTeamLocked(currentSession);
+    if (teamLockStatus.isTeamLocked) {
+      Alert.alert(
+        "Équipes verrouillées", 
+        `Vous ne pouvez pas quitter votre équipe car la session commence dans moins d'une heure.`
+      );
       return;
     }
 
@@ -420,6 +459,7 @@ export const LobbyScreen = () => {
                     : undefined
                 }
                 onLeaveTeam={() => handleLeaveTeam(team.id)}
+                isTeamLeaveDisabled={isTeamLeaveDisabled}
                 isLoading={isJoiningTeam === team.id || isLeavingTeam === team.id}
               />
             ))}
@@ -795,6 +835,13 @@ const styles = StyleSheet.create({
     color: colors.text.white,
     fontSize: 15,
     fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: 'rgba(150,150,150,0.5)',
+    opacity: 0.7,
+  },
+  disabledButtonText: {
+    opacity: 0.8,
   },
   fullSessionMessage: {
     flexDirection: 'row',

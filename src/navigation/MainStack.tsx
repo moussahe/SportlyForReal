@@ -5,10 +5,12 @@ import { LobbyScreen } from '../screens/Lobby/LobbyScreen';
 import { ChatScreen } from '../screens/Chat/ChatScreen';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { CreateSessionScreen } from '../screens/CreateSession/CreateSessionScreen';
+import ActiveSessionScreen from '../screens/ActiveSession/ActiveSessionScreen';
 
 export type RootStackParamList = {
   Home: undefined;
   Lobby: { sessionId: string };
+  ActiveSession: { sessionId: string };
   Chat: { sessionId: string };
   Profile: undefined;
   CreateSession: undefined;
@@ -25,6 +27,7 @@ export const MainStack = () => {
     >
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Lobby" component={LobbyScreen} />
+      <Stack.Screen name="ActiveSession" component={ActiveSessionScreen} options={{ gestureEnabled: false }} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="CreateSession" component={CreateSessionScreen} />

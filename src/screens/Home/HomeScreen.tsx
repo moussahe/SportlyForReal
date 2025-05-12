@@ -26,14 +26,16 @@ import { Session, SessionsState } from '../../types';
 import colors from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import UpcomingSessionBanner from '../../components/UpcomingSessionBanner';
+import { getNextUpcomingSession, isSessionUpcoming, isSessionActive } from '../../utils/sessionUtils';
 
 export type RootStackParamList = {
   Home: undefined;
   Lobby: { sessionId: string };
   Profile: undefined;
   CreateSession: undefined;
+  ActiveSession: { sessionId: string };
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
@@ -50,7 +52,7 @@ interface SessionCardProps {
 const SearchBar: React.FC<{ onSearch: (text: string) => void }> = ({ onSearch }) => (
   <View style={styles.searchContainer}>
     <View style={styles.searchInputWrapper}>
-      <Ionicons name="search-outline" size={20} color={colors.primary} style={styles.searchIcon} />
+      <Ionicons name="search" size={22} color={colors.primary} style={styles.searchIcon} />
       <TextInput
         style={styles.searchInput}
         placeholder="Rechercher par adresse..."
@@ -313,6 +315,7 @@ export const HomeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigation = useNavigation<NavigationProp>();
   const { sessions, loading, error } = useSelector((state: RootState) => state.sessions as SessionsState);
+  const currentUser = useSelector((state: RootState) => state.user.currentUser);
   
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -321,10 +324,54 @@ export const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cardAnimation] = useState(new Animated.Value(0));
   const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [showUpcomingBanner, setShowUpcomingBanner] = useState<boolean>(true);
   
   // Nouveaux états pour le filtre par sport
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [showSportDropdown, setShowSportDropdown] = useState<boolean>(false);
+  
+  // État pour stocker la session à venir
+  const [upcomingSession, setUpcomingSession] = useState<Session | null>(null);
+
+  // Récupérer la session à venir enregistrée dans AsyncStorage lors de la navigation
+  const loadSavedUpcomingSession = async () => {
+    try {
+      const savedSessionStr = await AsyncStorage.getItem('upcomingSession');
+      if (savedSessionStr) {
+        const savedSession = JSON.parse(savedSessionStr);
+        const { isUpcoming } = isSessionUpcoming(savedSession);
+        
+        // Ne charger que si la session est encore à venir
+        if (isUpcoming) {
+          setUpcomingSession(savedSession);
+          // Récupérer aussi l'état d'affichage de la bannière
+          const showBanner = await AsyncStorage.getItem('showUpcomingBanner');
+          setShowUpcomingBanner(showBanner === 'true');
+        } else {
+          // Si la session n'est plus à venir, nettoyer le stockage
+          AsyncStorage.removeItem('upcomingSession');
+          AsyncStorage.removeItem('showUpcomingBanner');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved upcoming session', error);
+    }
+  };
+
+  // Fonction pour sauvegarder la session à venir dans AsyncStorage
+  const saveUpcomingSession = async (session: Session | null, show: boolean) => {
+    try {
+      if (session) {
+        await AsyncStorage.setItem('upcomingSession', JSON.stringify(session));
+        await AsyncStorage.setItem('showUpcomingBanner', show ? 'true' : 'false');
+      } else {
+        await AsyncStorage.removeItem('upcomingSession');
+        await AsyncStorage.removeItem('showUpcomingBanner');
+      }
+    } catch (error) {
+      console.error('Error saving upcoming session', error);
+    }
+  };
 
   useEffect(() => {
     if (sessions && !loading) {
@@ -340,11 +387,69 @@ export const HomeScreen: React.FC = () => {
   useEffect(() => {
     loadSessions();
     initializeLocation();
+    loadSavedUpcomingSession(); // Charger la session sauvegardée
   }, [dispatch]);
   
+  useEffect(() => {
+    if (!sessions || !currentUser) return;
+    
+    const nextSession = getNextUpcomingSession(sessions, currentUser.id);
+    
+    // Si une nouvelle session est trouvée, mettre à jour et sauvegarder
+    if (nextSession && (!upcomingSession || nextSession.id !== upcomingSession.id)) {
+      setUpcomingSession(nextSession);
+      setShowUpcomingBanner(true); // Toujours afficher pour une nouvelle session
+      saveUpcomingSession(nextSession, true);
+    } else if (!nextSession && upcomingSession) {
+      // Si plus de session à venir mais qu'il y en avait une avant
+      setUpcomingSession(null);
+      setShowUpcomingBanner(false);
+      saveUpcomingSession(null, false);
+    }
+    
+    // Vérifier si l'utilisateur a une session active en cours
+    const checkForActiveSession = () => {
+      // Vérifier les sessions de l'utilisateur (celles auxquelles il participe ou qu'il héberge)
+      const userSessions = sessions.filter(session => 
+        session.participants.some(participant => participant.id === currentUser.id) || 
+        session.host.id === currentUser.id
+      );
+      
+      // Vérifier si l'une de ces sessions est active
+      for (const session of userSessions) {
+        const activeInfo = isSessionActive(session);
+        if (activeInfo.isActive) {
+          // Rediriger vers l'écran ActiveSession
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ActiveSession', params: { sessionId: session.id } }],
+          });
+          return;
+        }
+      }
+    };
+    
+    // Vérifier immédiatement, puis toutes les 30 secondes
+    checkForActiveSession();
+    const activeSessionInterval = setInterval(checkForActiveSession, 30000);
+    
+    return () => clearInterval(activeSessionInterval);
+  }, [sessions, currentUser, navigation]);
+
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (!refreshing) {
+        dispatch(fetchSessions());
+      }
+    }, 120000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [dispatch, refreshing]);
+
   useFocusEffect(
     useCallback(() => {
       initializeLocation();
+      loadSavedUpcomingSession(); 
       return () => {};
     }, [])
   );
@@ -620,6 +725,13 @@ export const HomeScreen: React.FC = () => {
           </View>
         )}
       </View>
+
+      {upcomingSession && showUpcomingBanner && (
+        <UpcomingSessionBanner 
+          session={upcomingSession} 
+          onClose={() => setShowUpcomingBanner(false)} 
+        />
+      )}
 
       <SearchBar onSearch={handleSearchChange} />
       <FilterButtons 
@@ -1049,7 +1161,7 @@ const styles = StyleSheet.create({
   },
   sportDropdown: {
     position: 'absolute',
-    top: 55, // Juste en dessous des boutons de filtre
+    top: 55,
     right: 16,
     backgroundColor: 'white',
     borderRadius: 12,
