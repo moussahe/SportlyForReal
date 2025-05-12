@@ -50,7 +50,7 @@ const sports: readonly SportConfig[] = [
     popularLocations: ["gymnase", "terrain extérieur", "playground"]
   },
   {
-    id: 'padel',
+    id: faker.string.uuid(),
     name: 'Padel',
     icon: '🎾',
     description: 'Sport de raquette qui se joue en double sur un terrain vitré.',

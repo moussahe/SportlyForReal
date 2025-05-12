@@ -1,3 +1,5 @@
+import * as Location from 'expo-location';
+
 /**
  * Calcule un score de pertinence entre un lieu et un terme de recherche
  * Plus le score est élevé, plus le lieu est pertinent
@@ -87,44 +89,66 @@ const toRad = (value: number): number => {
 };
 
 /**
+ * Vérifie et demande les permissions de géolocalisation
+ * Retourne true si l'utilisateur a accordé la permission, false sinon
+ */
+export const requestLocationPermission = async (): Promise<boolean> => {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    console.error('Erreur lors de la demande de permission de géolocalisation:', error);
+    return false;
+  }
+};
+
+/**
  * Obtient la position actuelle de l'utilisateur
  * Retourne une promesse avec les coordonnées
  * Fournit des coordonnées par défaut pour le web ou en cas d'erreur
+ * Vérifie d'abord les permissions
  */
-export const getCurrentPosition = (): Promise<Coordinates> => {
-  return new Promise((resolve, reject) => {
-    // Coordonnées par défaut (Paris)
-    const defaultCoordinates: Coordinates = {
-      latitude: 48.8566,
-      longitude: 2.3522
-    };
+export const getCurrentPosition = async (): Promise<{
+  coords: Coordinates;
+  permissionGranted: boolean;
+}> => {
+  // Coordonnées par défaut (Paris)
+  const defaultCoordinates: Coordinates = {
+    latitude: 48.8566,
+    longitude: 2.3522
+  };
 
-    // Sur le web ou sans API de géolocalisation, utiliser les coordonnées par défaut
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      console.log('📍 Géolocalisation non disponible, utilisation des coordonnées par défaut');
-      resolve(defaultCoordinates);
-      return;
+  try {
+    // Vérification des permissions (sans afficher de popup)
+    const { status } = await Location.getForegroundPermissionsAsync();
+    
+    if (status !== 'granted') {
+      console.log('📍 Permission de géolocalisation non accordée');
+      return {
+        coords: defaultCoordinates,
+        permissionGranted: false
+      };
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
+    // Obtention de la position
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High
+    });
+    
+    return {
+      coords: {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
       },
-      (error) => {
-        console.log('📍 Erreur de géolocalisation, utilisation des coordonnées par défaut', error);
-        // Au lieu de rejeter, on résout avec des coordonnées par défaut
-        resolve(defaultCoordinates);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      }
-    );
-  });
+      permissionGranted: true
+    };
+  } catch (error) {
+    console.log('📍 Erreur de géolocalisation, utilisation des coordonnées par défaut', error);
+    return {
+      coords: defaultCoordinates,
+      permissionGranted: false
+    };
+  }
 };
 
 /**
@@ -135,4 +159,32 @@ export const formatDistance = (distance: number): string => {
     return `${Math.round(distance * 1000)} m`;
   }
   return `${Math.round(distance * 10) / 10} km`;
+};
+
+/**
+ * Convertit une adresse en coordonnées GPS
+ * Utilise l'API de géocodification d'Expo Location
+ * @param address Adresse à géocoder
+ * @param city Ville de l'adresse
+ * @returns Promise<Coordinates | null> Coordonnées GPS ou null si échec
+ */
+export const geocodeAddress = async (address: string, city: string): Promise<Coordinates | null> => {
+  try {
+    const searchAddress = `${address}, ${city}`;
+    console.log(`🔍 Géocodage de l'adresse: ${searchAddress}`);
+    
+    const result = await Location.geocodeAsync(searchAddress);
+    
+    if (result && result.length > 0) {
+      const { latitude, longitude } = result[0];
+      console.log(`✅ Coordonnées trouvées: ${latitude}, ${longitude}`);
+      return { latitude, longitude };
+    }
+    
+    console.log('❌ Aucun résultat trouvé pour cette adresse');
+    return null;
+  } catch (error) {
+    console.error('❌ Erreur lors du géocodage:', error);
+    return null;
+  }
 };
