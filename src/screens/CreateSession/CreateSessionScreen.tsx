@@ -35,12 +35,13 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/MainStack';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
-import { Level } from '../../types';
+import { Level, Sport } from '../../types';
 import colors from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { mockSports } from '../../data/mockSports';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { createSession } from '../../store/slices/sessionsSlice';
+import { fetchSports } from '../../store/slices/sportsSlice';
+import { geocodeAddress } from '../../utils/locationUtils';
 
 type CreateSessionScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -48,13 +49,15 @@ export const CreateSessionScreen = () => {
   const navigation = useNavigation<CreateSessionScreenNavigationProp>();
   const dispatch = useDispatch<AppDispatch>();
   const currentUser = useSelector((state: RootState) => state.user.currentUser);
+  const { sports, loading: sportsLoading } = useSelector((state: RootState) => state.sports);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [isLoading, setIsLoading] = useState(false);
   
   // Form states
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
-  const [location, setLocation] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
   const [maxPlayers, setMaxPlayers] = useState('10');
   const [level, setLevel] = useState(Level.BEGINNER);
   const [description, setDescription] = useState('');
@@ -62,13 +65,18 @@ export const CreateSessionScreen = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Animation on component mount
+  // Animation on component mount and fetch sports
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
       useNativeDriver: true,
     }).start();
+    
+    // Fetch sports from API if not already loaded
+    if (!sports) {
+      dispatch(fetchSports());
+    }
   }, []);
 
   const handleSportSelect = (sportId: string) => {
@@ -93,7 +101,7 @@ export const CreateSessionScreen = () => {
   };
 
   const validateForm = () => {
-    if (!selectedSport || !location.trim() || 
+    if (!selectedSport || !address.trim() || !city.trim() || 
         isNaN(parseInt(maxPlayers)) || parseInt(maxPlayers) < 2 ||
         !description.trim() ||
         isNaN(parseInt(duration)) || parseInt(duration) < 15) {
@@ -106,8 +114,11 @@ export const CreateSessionScreen = () => {
     if (!selectedSport) {
       return 'Veuillez sélectionner un sport';
     }
-    if (!location.trim()) {
-      return 'Veuillez entrer un lieu';
+    if (!address.trim()) {
+      return 'Veuillez entrer une adresse';
+    }
+    if (!city.trim()) {
+      return 'Veuillez entrer une ville';
     }
     if (isNaN(parseInt(maxPlayers)) || parseInt(maxPlayers) < 2) {
       return 'Le nombre maximum de joueurs doit être au moins 2';
@@ -135,7 +146,13 @@ export const CreateSessionScreen = () => {
 
     setIsLoading(true);
 
-    const selectedSportObj = mockSports.find(s => s.id === selectedSport);
+    if (!sports) {
+      Alert.alert('Erreur', 'Les sports n\'ont pas été chargés');
+      setIsLoading(false);
+      return;
+    }
+    
+    const selectedSportObj = sports.find((s: Sport) => s.id === selectedSport);
     if (!selectedSportObj) {
       Alert.alert('Erreur', 'Sport non valide');
       setIsLoading(false);
@@ -143,16 +160,64 @@ export const CreateSessionScreen = () => {
     }
     
     try {
+      // Géocodage de l'adresse
+      const coordinates = await geocodeAddress(address, city);
+      
+      if (!coordinates) {
+        Alert.alert(
+          'Avertissement', 
+          'Impossible de géolocaliser cette adresse. Voulez-vous continuer sans coordonnées GPS ?',
+          [
+            {
+              text: 'Annuler',
+              style: 'cancel',
+              onPress: () => setIsLoading(false)
+            },
+            {
+              text: 'Continuer',
+              onPress: async () => {
+                const defaultCoordinates = { latitude: 45.75, longitude: 4.85 };
+                
+                const sessionData = {
+                  sport: selectedSportObj,
+                  dateTime: date.toISOString(),
+                  location: {
+                    address: address,
+                    city: city,
+                    coordinates: defaultCoordinates
+                  },
+                  maxPlayers: parseInt(maxPlayers),
+                  level: level,
+                  description: description,
+                  duration: parseInt(duration),
+                };
+                
+                try {
+                  await dispatch(createSession(sessionData)).unwrap();
+                  Alert.alert(
+                    'Succès',
+                    'Votre session a été créée avec succès!',
+                    [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+                  );
+                } catch (error) {
+                  Alert.alert('Erreur', 'La création de la session a échoué. Veuillez réessayer.');
+                } finally {
+                  setIsLoading(false);
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
       const sessionData = {
         sport: selectedSportObj,
         dateTime: date.toISOString(),
         location: {
-          address: location,
-          city: 'À déterminer', // Dans une version future, ajouter un sélecteur de ville
-          coordinates: {
-            latitude: 0, // Dans une version future, ajouter une sélection sur la carte
-            longitude: 0
-          }
+          address: address,
+          city: city,
+          coordinates: coordinates
         },
         maxPlayers: parseInt(maxPlayers),
         level: level,
@@ -204,7 +269,7 @@ export const CreateSessionScreen = () => {
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={24} color={colors.text.primary} />
+              <Ionicons name="close" size={24} color={colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Créer une session</Text>
             <View style={styles.placeholder} />
@@ -217,29 +282,38 @@ export const CreateSessionScreen = () => {
               <Text style={styles.sectionSubtitle}>Choisissez le sport pour votre session</Text>
               
               <View style={styles.sportGrid}>
-                {mockSports.map(sport => (
-                  <TouchableOpacity
-                    key={sport.id}
-                    style={[
-                      styles.sportCard,
-                      selectedSport === sport.id && styles.sportCardSelected
-                    ]}
-                    onPress={() => handleSportSelect(sport.id)}
-                  >
-                    <View style={[
-                      styles.sportIconContainer,
-                      selectedSport === sport.id && styles.sportIconContainerSelected
-                    ]}>
-                      <Text style={styles.sportIcon}>{sport.icon}</Text>
-                    </View>
-                    <Text style={[
-                      styles.sportName,
-                      selectedSport === sport.id && styles.sportNameSelected
-                    ]}>
-                      {sport.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {sportsLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Chargement des sports...</Text>
+                  </View>
+                ) : sports && sports.length > 0 ? (
+                  sports.map((sport: Sport) => (
+                    <TouchableOpacity
+                      key={sport.id}
+                      style={[
+                        styles.sportCard,
+                        selectedSport === sport.id && styles.sportCardSelected
+                      ]}
+                      onPress={() => handleSportSelect(sport.id)}
+                    >
+                      <View style={[
+                        styles.sportIconContainer,
+                        selectedSport === sport.id && styles.sportIconContainerSelected
+                      ]}>
+                        <Text style={styles.sportIcon}>{sport.icon}</Text>
+                      </View>
+                      <Text style={[
+                        styles.sportName,
+                        selectedSport === sport.id && styles.sportNameSelected
+                      ]}>
+                        {sport.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.errorText}>Aucun sport disponible</Text>
+                )}
               </View>
             </View>
             
@@ -272,7 +346,7 @@ export const CreateSessionScreen = () => {
                 <DateTimePicker
                   value={date}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
                   onChange={handleDateChange}
                   minimumDate={new Date()}
                   style={styles.picker}
@@ -283,7 +357,7 @@ export const CreateSessionScreen = () => {
                 <DateTimePicker
                   value={date}
                   mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'clock'}
                   onChange={handleTimeChange}
                   style={styles.picker}
                 />
@@ -295,17 +369,26 @@ export const CreateSessionScreen = () => {
               <Text style={styles.sectionTitle}>Lieu</Text>
               <Text style={styles.sectionSubtitle}>Où se déroulera votre session ?</Text>
               
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, { marginBottom: 10 }]}>
                 <Ionicons name="location-outline" size={22} color={colors.primary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Adresse du lieu"
-                  value={location}
-                  onChangeText={setLocation}
+                  value={address}
+                  onChangeText={setAddress}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="business-outline" size={22} color={colors.primary} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Ville"
+                  value={city}
+                  onChangeText={setCity}
                 />
               </View>
               
-              {/* Dans une version future, ajouter une carte pour sélectionner le lieu */}
             </View>
             
             {/* Session Settings */}
@@ -687,6 +770,26 @@ const styles = StyleSheet.create({
     color: colors.text.white,
     fontSize: 18,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    width: '100%',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.text.secondary || '#ff3b30',
+    textAlign: 'center',
+    padding: 20,
+    width: '100%',
   },
 });
 

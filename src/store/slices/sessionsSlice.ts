@@ -36,11 +36,24 @@ interface CreateSessionPayload {
 export const fetchSessions = createAsyncThunk(
   'sessions/fetchSessions',
   async () => {
-    const response = await fetch(`${API_URL}/sessions`);
-    if (!response.ok) {
-      throw new Error('Erreur lors du chargement des sessions');
+    try {
+      console.log(`Fetching sessions from: ${API_URL}/sessions`);
+      const response = await fetch(`${API_URL}/sessions`);
+      
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors du chargement des sessions'}`);
+      }
+      
+      const data = await response.json();
+      console.log('Sessions loaded successfully:', data.length || 0, 'sessions');
+      return data;
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      throw error;
     }
-    return response.json();
   }
 );
 

@@ -13,17 +13,21 @@ import {
   Animated,
   StatusBar,
   ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { fetchSessions } from '../../store/slices/sessionsSlice';
 import { RootState, AppDispatch } from '../../store/store';
 import { formatDate } from '../../utils/dateUtils';
-import { calculateDistance, getCurrentPosition, formatDistance, Coordinates } from '../../utils/locationUtils';
+import { fetchSessions } from '../../store/slices/sessionsSlice';
+import { calculateDistance, getCurrentPosition, formatDistance, Coordinates, requestLocationPermission } from '../../utils/locationUtils';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Session, SessionsState } from '../../types';
 import colors from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -46,10 +50,10 @@ interface SessionCardProps {
 const SearchBar: React.FC<{ onSearch: (text: string) => void }> = ({ onSearch }) => (
   <View style={styles.searchContainer}>
     <View style={styles.searchInputWrapper}>
-      <Ionicons name="search-outline" size={20} color={colors.text.light} style={styles.searchIcon} />
+      <Ionicons name="search-outline" size={20} color={colors.primary} style={styles.searchIcon} />
       <TextInput
         style={styles.searchInput}
-        placeholder="Rechercher par lieu..."
+        placeholder="Rechercher par adresse..."
         onChangeText={onSearch}
         placeholderTextColor={colors.text.light}
       />
@@ -74,7 +78,7 @@ const FilterButtons: React.FC<{
   onToggleSportDropdown,
   showSportDropdown 
 }) => (
-  <View>
+  <View style={styles.filterContainer}>
     <ScrollView 
       horizontal 
       showsHorizontalScrollIndicator={false} 
@@ -104,7 +108,7 @@ const FilterButtons: React.FC<{
         />
         <Text style={[styles.filterButtonText, activeFilter === 'today' && styles.filterButtonTextActive]}>Aujourd'hui</Text>
       </TouchableOpacity>
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         style={[styles.filterButton, activeFilter === 'popular' && styles.filterButtonActive]}
         onPress={() => onFilter('popular')}
       >
@@ -115,63 +119,70 @@ const FilterButtons: React.FC<{
           style={styles.filterIcon} 
         />
         <Text style={[styles.filterButtonText, activeFilter === 'popular' && styles.filterButtonTextActive]}>Populaire</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.filterButton, selectedSport && styles.filterButtonActive]}
-        onPress={onToggleSportDropdown}
-      >
-        <Ionicons 
-          name="football-outline" 
-          size={18} 
-          color={selectedSport ? 'white' : colors.text.secondary} 
-          style={styles.filterIcon} 
-        />
-        <Text style={[styles.filterButtonText, selectedSport && styles.filterButtonTextActive]}>
-          {selectedSport ? 'Sport' : 'Sport'}
-        </Text>
-        <Ionicons 
-          name={showSportDropdown ? "chevron-up" : "chevron-down"} 
-          size={16} 
-          color={selectedSport ? 'white' : colors.text.secondary} 
-          style={{ marginLeft: 4 }}
-        />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
+      <View style={styles.sportFilterContainer}>
+        <TouchableOpacity 
+          style={[styles.filterButton, selectedSport && styles.filterButtonActive]}
+          onPress={onToggleSportDropdown}
+        >
+          <Ionicons 
+            name="football-outline" 
+            size={18} 
+            color={selectedSport ? 'white' : colors.text.secondary} 
+            style={styles.filterIcon} 
+          />
+          <Text style={[styles.filterButtonText, selectedSport && styles.filterButtonTextActive]}>
+            {selectedSport ? 'Sport' : 'Sport'}
+          </Text>
+          <Ionicons 
+            name={showSportDropdown ? "chevron-up" : "chevron-down"} 
+            size={16} 
+            color={selectedSport ? 'white' : colors.text.secondary} 
+            style={{ marginLeft: 4 }}
+          />
+        </TouchableOpacity>
+      </View>
     </ScrollView>
     
     {showSportDropdown && sportsList && (
-      <View style={styles.sportDropdown}>
-        <TouchableOpacity 
-          style={styles.sportDropdownItem} 
-          onPress={() => onSportFilter && onSportFilter(null)}
-        >
-          <Text style={[
-            styles.sportDropdownText, 
-            !selectedSport && styles.sportDropdownTextSelected
-          ]}>
-            Tous les sports
-          </Text>
-          {!selectedSport && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-        </TouchableOpacity>
-        
-        {sportsList.map(sport => (
+      <>
+        <TouchableWithoutFeedback onPress={onToggleSportDropdown}>
+          <View style={styles.dropdownBackdrop} />
+        </TouchableWithoutFeedback>
+        <View style={styles.sportDropdown}>
           <TouchableOpacity 
-            key={sport.id}
             style={styles.sportDropdownItem} 
-            onPress={() => onSportFilter && onSportFilter(sport.id)}
+            onPress={() => onSportFilter && onSportFilter(null)}
           >
-            <View style={styles.sportDropdownItemContent}>
-              <Text style={styles.sportIcon}>{sport.icon}</Text>
-              <Text style={[
-                styles.sportDropdownText,
-                selectedSport === sport.id && styles.sportDropdownTextSelected
-              ]}>
-                {sport.name}
-              </Text>
-            </View>
-            {selectedSport === sport.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+            <Text style={[
+              styles.sportDropdownText, 
+              !selectedSport && styles.sportDropdownTextSelected
+            ]}>
+              Tous les sports
+            </Text>
+            {!selectedSport && <Ionicons name="checkmark" size={16} color={colors.primary} />}
           </TouchableOpacity>
-        ))}
-      </View>
+          
+          {sportsList.map(sport => (
+            <TouchableOpacity 
+              key={sport.id}
+              style={styles.sportDropdownItem} 
+              onPress={() => onSportFilter && onSportFilter(sport.id)}
+            >
+              <View style={styles.sportDropdownItemContent}>
+                <Text style={styles.sportIcon}>{sport.icon}</Text>
+                <Text style={[
+                  styles.sportDropdownText,
+                  selectedSport === sport.id && styles.sportDropdownTextSelected
+                ]}>
+                  {sport.name}
+                </Text>
+              </View>
+              {selectedSport === sport.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </>
     )}
   </View>
 );
@@ -181,8 +192,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onPress }) => {
   
   const handlePressIn = () => {
     Animated.spring(animatedScale, {
-      toValue: 0.98,
-      friction: 8,
+      toValue: 0.97,
+      friction: 7,
       tension: 40,
       useNativeDriver: true,
     }).start();
@@ -191,14 +202,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onPress }) => {
   const handlePressOut = () => {
     Animated.spring(animatedScale, {
       toValue: 1,
-      friction: 3,
+      friction: 4,
       tension: 40,
       useNativeDriver: true,
     }).start();
   };
   
   return (
-    <Animated.View style={{ transform: [{ scale: animatedScale }] }}>
+    <Animated.View style={[styles.cardWrapper, { transform: [{ scale: animatedScale }] }]}>
       <TouchableOpacity 
         style={styles.card} 
         onPress={onPress}
@@ -309,6 +320,7 @@ export const HomeScreen: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<string>('nearby');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cardAnimation] = useState(new Animated.Value(0));
+  const [isLocating, setIsLocating] = useState<boolean>(false);
   
   // Nouveaux états pour le filtre par sport
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
@@ -318,7 +330,7 @@ export const HomeScreen: React.FC = () => {
     if (sessions && !loading) {
       Animated.timing(cardAnimation, {
         toValue: 1,
-        duration: 500,
+        duration: 700,
         useNativeDriver: true,
         delay: 100,
       }).start();
@@ -330,7 +342,6 @@ export const HomeScreen: React.FC = () => {
     initializeLocation();
   }, [dispatch]);
   
-  // Rafraîchir les données quand on revient sur cette page
   useFocusEffect(
     useCallback(() => {
       initializeLocation();
@@ -338,16 +349,79 @@ export const HomeScreen: React.FC = () => {
     }, [])
   );
 
-  const initializeLocation = async () => {
+  // Récupère la dernière position connue du stockage local
+  const getStoredLocation = async (): Promise<Coordinates | null> => {
     try {
-      console.log('📍 Initialisation de la géolocalisation...');
-      const position = await getCurrentPosition();
-      console.log('✅ Position obtenue:', position);
-      setUserLocation(position);
-      setLocationError(null);
+      const storedLocation = await AsyncStorage.getItem('lastKnownLocation');
+      if (storedLocation) {
+        return JSON.parse(storedLocation);
+      }
+      return null;
+    } catch (error) {
+      console.log('Erreur lors de la récupération de la position stockée:', error);
+      return null;
+    }
+  };
+
+  // Stocke la dernière position connue
+  const storeLocation = async (location: Coordinates) => {
+    try {
+      await AsyncStorage.setItem('lastKnownLocation', JSON.stringify(location));
+    } catch (error) {
+      console.log('Erreur lors du stockage de la position:', error);
+    }
+  };
+
+  const initializeLocation = async () => {
+    // Éviter les requêtes multiples simultanées de localisation
+    if (isLocating) return;
+    setIsLocating(true);
+    
+    try {
+      // Vérifier rapidement si nous avons déjà une position en cache pour l'afficher immédiatement
+      const lastLocation = await getStoredLocation();
+      if (lastLocation && !userLocation) {
+        console.log('📍 Utilisation de la dernière position connue en attendant mise à jour...');
+        setUserLocation(lastLocation);
+      }
+      
+      const { status } = await Location.getForegroundPermissionsAsync();
+      
+      // Si la permission n'est pas accordée, on la demande explicitement
+      if (status !== 'granted') {
+        console.log('📍 Demande de permission de localisation...');
+        const permissionResult = await requestLocationPermission();
+        if (!permissionResult) {
+          setLocationError("L'accès à votre localisation est nécessaire pour afficher les sessions à proximité.");
+          setIsLocating(false);
+          return;
+        }
+      }
+      
+      const positionPromise = getCurrentPosition();
+      
+      const timeoutPromise = new Promise<any>((_, reject) => 
+        setTimeout(() => reject(new Error('Délai dépassé pour obtenir la position')), 3000)
+      );
+      
+      const position = await Promise.race([positionPromise, timeoutPromise])
+        .catch(error => {
+          console.log('Délai dépassé pour la localisation, utilisation de la dernière position connue:', error);
+          return lastLocation ? { coords: lastLocation, permissionGranted: true } : null;
+        });
+
+      if (position && position.coords) {
+        console.log('✅ Position obtenue:', position);
+        setUserLocation(position.coords);
+        setLocationError(null);
+        
+        storeLocation(position.coords);
+      }
     } catch (error) {
       console.error('❌ Erreur de géolocalisation:', error);
       setLocationError("Impossible d'obtenir votre position. Vérifiez vos paramètres de localisation.");
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -516,7 +590,7 @@ export const HomeScreen: React.FC = () => {
   const sessionsWithDistance = getSessionsWithDistance(sessions);
   const filteredSessionsList = filteredSessions(sessionsWithDistance);
   const sportsList = getUniqueSports(sessions || []);
-
+    
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -634,6 +708,13 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
+  filterContainer: {
+    position: 'relative',
+    zIndex: 1000,
+  },
+  sportFilterContainer: {
+    position: 'relative',
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -661,15 +742,15 @@ const styles = StyleSheet.create({
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F2F5',
     borderRadius: 16,
     paddingHorizontal: 12,
     height: 50,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
+    backgroundColor: 'white',
   },
   searchIcon: {
     marginRight: 8,
@@ -679,6 +760,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text.primary,
     height: 50,
+    backgroundColor: 'white',
   },
   filterContainerScrollable: {
     flexDirection: 'row',
@@ -691,7 +773,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 20,
-    backgroundColor: '#F0F2F5',
+    backgroundColor: 'white',
     marginHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -773,18 +855,21 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 0,
   },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
+  cardWrapper: {
+    borderRadius: 25,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 25,
+    padding: 16,
     flexDirection: 'row',
-    overflow: 'hidden',
   },
   sportBadge: {
     backgroundColor: "white",
@@ -963,16 +1048,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sportDropdown: {
+    position: 'absolute',
+    top: 55, // Juste en dessous des boutons de filtre
+    right: 16,
     backgroundColor: 'white',
     borderRadius: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
+    width: 200,
     padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 9999,
   },
   sportDropdownItem: {
     flexDirection: 'row',
@@ -992,6 +1080,14 @@ const styles = StyleSheet.create({
   sportDropdownTextSelected: {
     fontWeight: '600',
     color: colors.primary,
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 990,
   },
 } as const);
 
