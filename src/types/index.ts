@@ -9,7 +9,8 @@ export enum SessionStatus {
   UPCOMING = 'UPCOMING',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
+  TERMINATED = 'TERMINATED'
 }
 
 export interface User {

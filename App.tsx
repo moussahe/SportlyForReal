@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import AuthInitializer from './src/components/AuthInitializer';
+import SessionManager from './src/components/SessionManager';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 
 export default function App() {
@@ -16,7 +17,9 @@ export default function App() {
         <Provider store={store}>
           <AuthInitializer>
             <NavigationContainer>
-              <AuthNavigator />
+              <SessionManager>
+                <AuthNavigator />
+              </SessionManager>
             </NavigationContainer>
           </AuthInitializer>
         </Provider>

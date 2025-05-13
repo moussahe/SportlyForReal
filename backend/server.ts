@@ -350,7 +350,6 @@ app.post('/api/sessions/:sessionId/join', async (req, res) => {
 app.get('/api/sessions/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    console.log('Recherche de la session:', sessionId);
 
     const session = await prisma.sportSession.findUnique({
       where: { id: sessionId },

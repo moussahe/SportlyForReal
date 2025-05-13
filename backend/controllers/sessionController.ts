@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Level, SessionStatus } from '@prisma/client';
 
-// Étendre la définition Express.Request pour le type correct
 declare global {
   namespace Express {
     interface Request {
       user?: {
-        id: string; // Correction 1: Type ID comme string au lieu de number
+        id: string;
         email: string;
       };
     }
@@ -16,6 +15,90 @@ declare global {
 const prisma = new PrismaClient();
 
 export const sessionController = {
+  // Mettre à jour le statut d'une session
+  updateSessionStatus: async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { status } = req.body;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Utilisateur non authentifié' });
+      }
+
+      // Vérifier si la session existe et récupérer l'ID de l'hôte
+      const session = await prisma.sportSession.findUnique({
+        where: { id: sessionId },
+        select: { host: { select: { id: true } } }
+      });
+
+      if (!session) {
+        return res.status(404).json({ error: 'Session non trouvée' });
+      }
+
+      // Vérifier que le statut est valide
+      if (!Object.values(SessionStatus).includes(status as SessionStatus)) {
+        return res.status(400).json({ error: 'Statut de session invalide' });
+      }
+
+      // Récupérer l'ancien statut pour le log
+      const currentSession = await prisma.sportSession.findUnique({
+        where: { id: sessionId },
+        select: { status: true }
+      });
+
+      // Mettre à jour le statut de la session
+      const updatedSession = await prisma.sportSession.update({
+        where: { id: sessionId },
+        data: { status: status as SessionStatus },
+        include: {
+          sport: true,
+          host: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              profilePicture: true,
+              bio: true,
+            }
+          },
+          participants: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              profilePicture: true,
+              bio: true,
+            }
+          },
+          teams: {
+            include: {
+              players: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  profilePicture: true,
+                  bio: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Log plus informatif avec l'ancien et le nouveau statut
+      console.log(`Statut de la session ${sessionId} mis à jour: ${currentSession?.status || 'inconnu'} -> ${status}`);
+      res.json(updatedSession);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut de la session:', error);
+      res.status(400).json({ 
+        error: 'Erreur lors de la mise à jour du statut de la session',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  },
+
   // Créer une nouvelle session
   createSession: async (req: Request, res: Response) => {
     try {

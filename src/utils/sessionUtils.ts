@@ -5,28 +5,37 @@ import { Session, SessionStatus } from '../types';
  * @param session La session à vérifier
  * @returns Un objet contenant isUpcoming (boolean) et minutesRemaining (number)
  */
-export const isSessionUpcoming = (session: Session): { isUpcoming: boolean; minutesRemaining: number; progress: number } => {
+export const isSessionUpcoming = (session: Session): { isUpcoming: boolean; minutesRemaining: number; progress: number; secondsRemaining: number } => {
   // Si la session n'est pas en statut UPCOMING, elle n'est pas imminente
   if (session.status !== SessionStatus.UPCOMING) {
-    return { isUpcoming: false, minutesRemaining: 0, progress: 0 };
+    return { isUpcoming: false, minutesRemaining: 0, secondsRemaining: 0, progress: 0 };
   }
 
   const sessionDate = new Date(session.dateTime);
   const now = new Date();
   
-  // Calcul de la différence en minutes
+  // Calcul de la différence en millisecondes
   const diffMs = sessionDate.getTime() - now.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  
+  // Calculs précis en secondes
+  const diffSecondsTotal = Math.max(0, Math.round(diffMs / 1000));
+  const diffMinutesExact = diffMs / (1000 * 60);
+  
+  // Pour l'affichage, calculer minutes et secondes séparément
+  const diffMinutesRounded = Math.floor(diffSecondsTotal / 60);
+  const diffSecondsRemaining = diffSecondsTotal % 60;
   
   // Une session est considérée comme imminente si elle commence dans les 30 prochaines minutes
-  const isUpcoming = diffMinutes >= 0 && diffMinutes <= 30;
+  const isUpcoming = diffMinutesExact >= -1 && diffMinutesExact <= 30;
   
   // Calculer la progression (0 à 1) où 0 = 30 minutes avant et 1 = maintenant
-  const progress = isUpcoming ? 1 - (diffMinutes / 30) : 0;
+  // Utilisation de valeurs exactes pour plus de précision
+  const progress = isUpcoming ? 1 - (diffMinutesExact / 30) : 0;
   
   return { 
     isUpcoming,
-    minutesRemaining: Math.max(0, diffMinutes),
+    minutesRemaining: Math.max(0, diffMinutesRounded),
+    secondsRemaining: diffSecondsRemaining,
     progress: Math.min(1, Math.max(0, progress))
   };
 };
@@ -134,4 +143,102 @@ export const getNextUpcomingSession = (sessions: Session[], userId: string): Ses
   
   // Retourner la session la plus proche ou null
   return userUpcomingSessions.length > 0 ? userUpcomingSessions[0].session : null;
+};
+
+/**
+ * Vérifie si une session devrait être en cours (IN_PROGRESS) en fonction de l'heure actuelle
+ * @param session La session à vérifier
+ * @returns Un booléen indiquant si la session devrait être en cours
+ */
+export const shouldSessionBeInProgress = (session: Session): boolean => {
+  // Si la session est déjà IN_PROGRESS ou si elle n'est pas UPCOMING, on ne change rien
+  if (session.status === SessionStatus.IN_PROGRESS || 
+      session.status !== SessionStatus.UPCOMING) {
+    return false;
+  }
+
+  const sessionDate = new Date(session.dateTime);
+  const now = new Date();
+  const durationMs = session.duration * 60 * 1000;
+  const endTime = new Date(sessionDate.getTime() + durationMs);
+  
+  // La session devrait être en cours si l'heure actuelle est entre le début et la fin
+  return now >= sessionDate && now < endTime;
+};
+
+/**
+ * Vérifie si une session devrait être terminée (TERMINATED) en fonction de l'heure actuelle
+ * @param session La session à vérifier
+ * @returns Un booléen indiquant si la session devrait être terminée
+ */
+export const shouldSessionBeCompleted = (session: Session): boolean => {
+  // Si la session est déjà TERMINATED ou COMPLETED, on ne change rien
+  if (session.status === SessionStatus.TERMINATED || 
+      session.status === SessionStatus.COMPLETED || 
+      session.status === SessionStatus.CANCELLED) {
+    return false;
+  }
+
+  const sessionDate = new Date(session.dateTime);
+  const durationMs = session.duration * 60 * 1000;
+  const endTime = new Date(sessionDate.getTime() + durationMs);
+  const now = new Date();
+  
+  // La session devrait être terminée si l'heure actuelle est après la fin prévue
+  return now >= endTime;
+};
+
+/**
+ * Vérifie et calcule toutes les informations temporelles d'une session
+ * @param session La session à vérifier
+ * @returns Toutes les informations temporelles pertinentes
+ */
+export const getSessionTimeInfo = (session: Session): {
+  shouldStartNow: boolean;
+  shouldEndNow: boolean;
+  timeUntilStart: number; // minutes
+  timeUntilEnd: number; // minutes
+  timeElapsed: number; // minutes
+  progress: number; // pourcentage 0-100
+  timeUntilEndExact: number; // secondes (pour plus de précision)
+} => {
+  const now = new Date();
+  const startTime = new Date(session.dateTime);
+  const durationMs = session.duration * 60 * 1000;
+  const endTime = new Date(startTime.getTime() + durationMs);
+  
+  // Temps jusqu'au début (en minutes)
+  const timeUntilStartMs = startTime.getTime() - now.getTime();
+  const timeUntilStart = Math.max(0, Math.ceil(timeUntilStartMs / (1000 * 60)));
+  
+  // Temps jusqu'à la fin (en minutes arrondies pour l'affichage)
+  const timeUntilEndMs = endTime.getTime() - now.getTime();
+  const timeUntilEnd = Math.max(0, Math.ceil(timeUntilEndMs / (1000 * 60)));
+  
+  // Temps exact jusqu'à la fin (en secondes, pour des calculs plus précis)
+  const timeUntilEndExact = Math.max(0, Math.round(timeUntilEndMs / 1000));
+  
+  // Temps écoulé depuis le début (en minutes)
+  const timeElapsedMs = now.getTime() - startTime.getTime();
+  const timeElapsed = Math.max(0, Math.floor(timeElapsedMs / (1000 * 60)));
+  
+  // Progression (en pourcentage) - calcul plus précis en utilisant les millisecondes
+  const totalDurationMs = session.duration * 60 * 1000;
+  const progress = Math.min(100, Math.max(0, (timeElapsedMs / totalDurationMs) * 100));
+  
+  // La session devrait commencer maintenant
+  const shouldStartNow = session.status === SessionStatus.UPCOMING && now >= startTime && now < endTime;
+  
+  // La session devrait se terminer maintenant
+  const shouldEndNow = session.status === SessionStatus.IN_PROGRESS && now >= endTime;
+  
+  return {
+    shouldStartNow,
+    shouldEndNow,
+    timeUntilStart,
+    timeUntilEnd,
+    timeElapsed,
+    progress,
+    timeUntilEndExact
+  };
 };

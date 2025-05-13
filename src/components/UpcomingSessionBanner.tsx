@@ -106,21 +106,28 @@ const UpcomingSessionBanner: React.FC<UpcomingSessionBannerProps> = ({ session, 
           ]).start();
         }
 
+        // Arrêter toute animation de pulse en cours
+        pulseAnim.stopAnimation();
+        // Réinitialiser la valeur
+        pulseAnim.setValue(1);
+        
+        // Animation de pulse plus subtile et agréable
         Animated.loop(
           Animated.sequence([
             Animated.timing(pulseAnim, {
-              toValue: 1.05,
-              duration: 600,
-              easing: Easing.inOut(Easing.ease),
+              toValue: 1.03,
+              duration: 800,
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(pulseAnim, {
               toValue: 1,
-              duration: 600,
-              easing: Easing.inOut(Easing.ease),
+              duration: 800, 
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
-          ])
+          ]), 
+          { iterations: -1 }
         ).start();
       }
 

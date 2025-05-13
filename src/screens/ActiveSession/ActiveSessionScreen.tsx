@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,18 @@ import {
   Alert,
   Platform,
   SafeAreaView,
+  AppState,
+  AppStateStatus
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
 import { Session, SessionStatus, Team, User } from '../../types';
-import { isSessionActive } from '../../utils/sessionUtils';
+import { getSessionTimeInfo } from '../../utils/sessionUtils';
 import colors from '../../theme/colors';
+import { updateSessionStatus, checkAndUpdateSessionStatus } from '../../store/slices/sessionsSlice';
 
 // Type pour les paramètres de route
 export type RootStackParamList = {
@@ -36,83 +39,150 @@ const ActiveSessionScreen: React.FC = () => {
   const route = useRoute<ActiveSessionRouteProp>();
   const { sessionId } = route.params;
   const dispatch = useDispatch<AppDispatch>();
+  const appState = useRef(AppState.currentState);
   
   // Récupérer les informations de session depuis le store
-  const { sessions } = useSelector((state: RootState) => state.sessions || { sessions: [] });
-  const session = sessions?.find((s: Session) => s.id === sessionId);
+  const { sessions, currentSession } = useSelector((state: RootState) => state.sessions);
+  const session = sessions && sessions.length > 0 
+    ? sessions.find((s: Session) => s.id === sessionId) 
+    : null;
+  
+  const activeSession = session || currentSession;
   const currentUser = useSelector((state: RootState) => state.user.currentUser);
   
-  // États locaux
-  const [countdown, setCountdown] = useState<number>(0);
-  const [progress, setProgress] = useState<number>(0);
+  const [timeInfo, setTimeInfo] = useState({
+    remainingMinutes: 0,
+    progress: 0,
+    formattedTime: '',
+    isSessionEnding: false
+  });
 
-  // Déterminer si l'utilisateur est l'hôte de la session
-  const isHost = session?.host.id === currentUser?.id;
+  const isHost = activeSession?.host.id === currentUser?.id;
 
-  // Types explicites pour éviter les erreurs TypeScript
-  type TeamWithIndex = {
-    team: Team;
-    index: number;
-  };
-  
-  type PlayerWithTeam = {
-    player: User;
-    teamId: string;
-  };
-
-  useEffect(() => {
-    if (!session) return;
+  // Formatage du temps restant
+  const formatRemainingTime = useCallback((minutes: number, seconds?: number): string => {
+    if (minutes <= 0 && (!seconds || seconds <= 0)) return "Session terminée";
     
-    // Bloquer le bouton de retour natif
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    // Si on a moins d'une minute restante et qu'on a des secondes, les afficher
+    if (mins === 0 && seconds !== undefined && seconds > 0) {
+      return `${seconds} seconde${seconds > 1 ? 's' : ''} restante${seconds > 1 ? 's' : ''}`;
+    }
+    
+    if (hours > 0) {
+      return `${hours}h ${mins > 0 ? `${mins}min` : ''} restantes`;
+    }
+    return `${mins} minute${mins > 1 ? 's' : ''} restante${mins > 1 ? 's' : ''}`;
+  }, []);
+
+  // Vérification du statut de la session
+  const checkSessionStatus = useCallback(() => {
+    if (!activeSession) return;
+    
+    const info = getSessionTimeInfo(activeSession);
+    
+    // Calculer les minutes et secondes à partir des secondes totales
+    const remainingMinutes = Math.floor(info.timeUntilEndExact / 60);
+    const remainingSeconds = info.timeUntilEndExact % 60;
+    
+    setTimeInfo({
+      remainingMinutes: remainingMinutes,
+      progress: info.progress,
+      // Si moins d'une minute, afficher en secondes pour plus de précision
+      formattedTime: remainingMinutes === 0 
+        ? formatRemainingTime(0, remainingSeconds)
+        : formatRemainingTime(remainingMinutes),
+      isSessionEnding: info.shouldEndNow
+    });
+
+    // Vérification automatique du statut
+    dispatch(checkAndUpdateSessionStatus(activeSession.id));
+    
+    if (info.shouldEndNow && activeSession.status === SessionStatus.IN_PROGRESS) {
+      Alert.alert(
+        "Session terminée",
+        "La session est maintenant terminée. Merci d'avoir participé !",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              dispatch(updateSessionStatus({ sessionId: activeSession.id, status: SessionStatus.TERMINATED }));
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+              });
+            },
+          },
+        ]
+      );
+    }
+  }, [activeSession, navigation, dispatch, formatRemainingTime]);
+
+  // Gestion des changements d'état de l'application (premier plan, arrière-plan)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        checkSessionStatus();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [checkSessionStatus]);
+
+  // Effet pour vérifier régulièrement le statut de la session
+  useEffect(() => {
+    if (!activeSession) return;
+    
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       Alert.alert(
         "Session en cours",
         "Vous ne pouvez pas quitter une session en cours. La session se terminera automatiquement à l'heure prévue.",
         [{ text: "OK" }]
       );
-      return true; // Empêche le comportement par défaut
+      return true;
     });
 
-    // Interval pour mettre à jour le temps restant
-    const interval = setInterval(() => {
-      if (!session) return;
+    // Vérification initiale
+    checkSessionStatus();
+
+    // Intervalle pour les vérifications de statut côté serveur (moins fréquent)
+    const statusInterval = setInterval(() => {
+      checkSessionStatus();
+    }, 10000);
+
+    // Intervalle pour les mises à jour de l'UI (plus fréquent pour un compteur précis)
+    const uiUpdateInterval = setInterval(() => {
+      if (!activeSession) return;
       
-      const activeInfo = isSessionActive(session);
-      
-      // Si la session n'est plus active, revenir à l'écran d'accueil
-    //   if (!activeInfo.isActive) {
-    //     // Afficher une alerte de fin de session
-    //     Alert.alert(
-    //       "Fin de la session",
-    //       "La session est maintenant terminée. Merci d'y avoir participé!",
-    //       [{ 
-    //         text: "OK",
-    //         onPress: () => {
-    //           clearInterval(interval);
-    //           navigation.reset({
-    //             index: 0,
-    //             routes: [{ name: 'Home' }],
-    //           });
-    //         }
-    //       }]
-    //     );
-    //     return;
-    //   }
-      
-      setCountdown(activeInfo.remainingMinutes);
-      // S'assurer que la progression est entre 0 et 100
-      setProgress(Math.min(100, Math.max(0, activeInfo.progressPercent)));
-      
+      const info = getSessionTimeInfo(activeSession);
+      setTimeInfo(prev => ({
+        ...prev,
+        remainingMinutes: info.timeUntilEnd,
+        progress: info.progress,
+        formattedTime: formatRemainingTime(info.timeUntilEnd)
+      }));
     }, 1000);
-    
+
     return () => {
       backHandler.remove();
-      clearInterval(interval);
+      clearInterval(statusInterval);
+      clearInterval(uiUpdateInterval);
     };
-  }, [session, navigation]);
+  }, [activeSession, navigation, dispatch, checkSessionStatus, formatRemainingTime]);
 
-  // Si la session n'a pas été trouvée
-  if (!session) {
+  useFocusEffect(
+    useCallback(() => {
+      checkSessionStatus();
+      return () => {};
+    }, [checkSessionStatus])
+  );
+
+  if (!activeSession) {
     return (
       <View style={styles.centerContent}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -121,21 +191,7 @@ const ActiveSessionScreen: React.FC = () => {
     );
   }
 
-  // Formatage du temps restant
-  const formatRemainingTime = (minutes: number): string => {
-    if (minutes <= 0) return "Session terminée";
-    
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${mins > 0 ? `${mins}min` : ''} restantes`;
-    }
-    return `${mins} minute${mins > 1 ? 's' : ''} restante${mins > 1 ? 's' : ''}`;
-  };
-
-  // Trouver l'équipe du joueur actuel
-  const userTeam = session.teams.find((team: Team) => 
+  const userTeam = activeSession.teams.find((team: Team) => 
     team.players.some((player: User) => player.id === currentUser?.id)
   );
 
@@ -145,19 +201,19 @@ const ActiveSessionScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.sportIconContainer}>
-            <Text style={styles.sportEmoji}>{session.sport.icon}</Text>
+            <Text style={styles.sportEmoji}>{activeSession.sport.icon}</Text>
           </View>
           <View>
-            <Text style={styles.title}>La session {session.sport.name} commence !</Text>
-            <Text style={styles.subtitle}>{session.location.address}</Text>
+            <Text style={styles.title}>Session {activeSession.sport.name} en cours</Text>
+            <Text style={styles.subtitle}>{activeSession.location.address}</Text>
           </View>
         </View>
       </View>
 
       {/* Barre de progression */}
       <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-        <Text style={styles.progressText}>{formatRemainingTime(countdown)}</Text>
+        <View style={[styles.progressBar, { width: `${timeInfo.progress}%` }]} />
+        <Text style={styles.progressText}>{timeInfo.formattedTime}</Text>
       </View>
 
       {/* Contenu principal */}
@@ -165,14 +221,14 @@ const ActiveSessionScreen: React.FC = () => {
         {/* Équipes */}
         <View style={styles.teamsContainer}>
           <Text style={styles.sectionTitle}>Équipes</Text>
-          {session.teams.map((team: Team, index: number) => (
+          {activeSession.teams.map((team: Team, index: number) => (
             <View key={team.id} style={styles.teamCard}>
               <View style={styles.teamHeader}>
                 <Text style={styles.teamName}>
                   Équipe {index + 1} {userTeam?.id === team.id && "• Votre équipe"}
                 </Text>
                 <Text style={styles.teamCount}>
-                  {team.players.length}/{session.sport.playersPerTeam}
+                  {team.players.length}/{activeSession.sport.playersPerTeam}
                 </Text>
               </View>
               <View style={styles.playersContainer}>
@@ -202,7 +258,7 @@ const ActiveSessionScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Informations</Text>
           <View style={styles.infoCard}>
             <Text style={styles.infoText}>
-              Cette session se terminera automatiquement dans {formatRemainingTime(countdown)}.
+              Cette session se terminera automatiquement dans {timeInfo.formattedTime}.
             </Text>
             <Text style={styles.infoText}>
               Bonne partie !
@@ -226,7 +282,7 @@ const ActiveSessionScreen: React.FC = () => {
                       text: "Terminer", 
                       style: "destructive",
                       onPress: () => {
-                        // TODO: Appel à l'API pour terminer la session
+                        dispatch(updateSessionStatus({ sessionId: activeSession.id, status: SessionStatus.TERMINATED }));
                         navigation.reset({
                           index: 0,
                           routes: [{ name: 'Home' }],
@@ -301,17 +357,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
   },
-  sessionStatus: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 12,
-  },
   progressContainer: {
     height: 40,
     backgroundColor: 'rgba(0,0,0,0.05)',
@@ -330,6 +375,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     textAlign: 'center',
+    zIndex: 1,
   },
   content: {
     flex: 1,

@@ -24,6 +24,7 @@ enum SessionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  TERMINATED
 }
 
 enum Difficulty {

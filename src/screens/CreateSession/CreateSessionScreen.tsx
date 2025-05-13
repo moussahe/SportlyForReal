@@ -69,19 +69,16 @@ export const CreateSessionScreen = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [isLoading, setIsLoading] = useState(false);
   
-  // Form states
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState('10');
   const [level, setLevel] = useState(Level.BEGINNER);
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('60');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Animation on component mount and fetch sports
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -89,7 +86,6 @@ export const CreateSessionScreen = () => {
       useNativeDriver: true,
     }).start();
     
-    // Fetch sports from API if not already loaded
     if (!sports) {
       dispatch(fetchSports());
     }
@@ -100,14 +96,14 @@ export const CreateSessionScreen = () => {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios'); // Only keep open on iOS
+    setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
       setDate(selectedDate);
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(Platform.OS === 'ios'); // Only keep open on iOS
+    setShowTimePicker(Platform.OS === 'ios');
     if (selectedTime) {
       const newDate = new Date(date);
       newDate.setHours(selectedTime.getHours());
@@ -117,9 +113,7 @@ export const CreateSessionScreen = () => {
   };
 
   const validateForm = () => {
-    if (!selectedSport || !address.trim() || !city.trim() || 
-        isNaN(parseInt(maxPlayers)) || parseInt(maxPlayers) < 2 ||
-        !description.trim() ||
+    if (!selectedSport || !address.trim() || !city.trim() || !description.trim() ||
         isNaN(parseInt(duration)) || parseInt(duration) < 15) {
       return false;
     }
@@ -135,9 +129,6 @@ export const CreateSessionScreen = () => {
     }
     if (!city.trim()) {
       return 'Veuillez entrer une ville';
-    }
-    if (isNaN(parseInt(maxPlayers)) || parseInt(maxPlayers) < 2) {
-      return 'Le nombre maximum de joueurs doit être au moins 2';
     }
     if (!description.trim()) {
       return 'Veuillez ajouter une description';
@@ -174,9 +165,8 @@ export const CreateSessionScreen = () => {
       setIsLoading(false);
       return;
     }
-    
+
     try {
-      // Géocodage de l'adresse
       const coordinates = await geocodeAddress(address, city);
       
       if (!coordinates) {
@@ -202,18 +192,18 @@ export const CreateSessionScreen = () => {
                     city: city,
                     coordinates: defaultCoordinates
                   },
-                  maxPlayers: parseInt(maxPlayers),
+                  maxPlayers: selectedSportObj.maxPlayers,
                   level: level,
                   description: description,
                   duration: parseInt(duration),
                 };
                 
                 try {
-                  await dispatch(createSession(sessionData)).unwrap();
+                  const newSession = await dispatch(createSession(sessionData)).unwrap();
                   Alert.alert(
                     'Succès',
                     'Votre session a été créée avec succès!',
-                    [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+                    [{ text: 'OK', onPress: () => navigation.replace('Lobby', { sessionId: newSession.id }) }]
                   );
                 } catch (error) {
                   Alert.alert('Erreur', 'La création de la session a échoué. Veuillez réessayer.');
@@ -235,17 +225,17 @@ export const CreateSessionScreen = () => {
           city: city,
           coordinates: coordinates
         },
-        maxPlayers: parseInt(maxPlayers),
+        maxPlayers: selectedSportObj.maxPlayers,
         level: level,
         description: description,
         duration: parseInt(duration),
       };
 
-      await dispatch(createSession(sessionData)).unwrap();
+      const newSession = await dispatch(createSession(sessionData)).unwrap();
       Alert.alert(
         'Succès',
         'Votre session a été créée avec succès!',
-        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        [{ text: 'OK', onPress: () => navigation.replace('Lobby', { sessionId: newSession.id }) }]
       );
     } catch (error) {
         console.log(error)
@@ -331,6 +321,29 @@ export const CreateSessionScreen = () => {
                   <Text style={styles.errorText}>Aucun sport disponible</Text>
                 )}
               </View>
+
+              {selectedSport && sports && (
+                <View style={styles.sportInfoContainer}>
+                  <Text style={styles.sectionSubtitle}>Informations sur ce sport :</Text>
+                  
+                  <View style={styles.sportInfoRow}>
+                    <View style={styles.sportInfoItem}>
+                      <Ionicons name="people-outline" size={20} color={colors.primary} style={styles.sportInfoIcon} />
+                      <Text style={styles.sportInfoText}>
+                        {sports.find(s => s.id === selectedSport)?.maxPlayers || 0} joueurs max.
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.sportInfoItem}>
+                      <Ionicons name="time-outline" size={20} color={colors.primary} style={styles.sportInfoIcon} />
+                      <Text style={styles.sportInfoText}>
+                        Durée : A définir
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
             </View>
             
             {/* Date and Time */}
@@ -410,43 +423,6 @@ export const CreateSessionScreen = () => {
             {/* Session Settings */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Paramètres</Text>
-              
-              <View style={styles.formRow}>
-                <Text style={styles.formLabel}>Nombre max. de joueurs</Text>
-                <View style={styles.numberInput}>
-                  <TouchableOpacity 
-                    style={styles.numberButton}
-                    onPress={() => {
-                      const value = parseInt(maxPlayers) - 1;
-                      if (value >= 2) setMaxPlayers(value.toString());
-                    }}
-                  >
-                    <Ionicons name="remove" size={18} color={colors.primary} />
-                  </TouchableOpacity>
-                  
-                  <TextInput
-                    style={styles.numberInputText}
-                    value={maxPlayers}
-                    onChangeText={(text) => {
-                      const value = parseInt(text);
-                      if (!isNaN(value) && value >= 0) {
-                        setMaxPlayers(value.toString());
-                      }
-                    }}
-                    keyboardType="number-pad"
-                  />
-                  
-                  <TouchableOpacity 
-                    style={styles.numberButton}
-                    onPress={() => {
-                      const value = parseInt(maxPlayers) + 1;
-                      setMaxPlayers(value.toString());
-                    }}
-                  >
-                    <Ionicons name="add" size={18} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
               
               <View style={styles.formRow}>
                 <Text style={styles.formLabel}>Durée (minutes)</Text>
@@ -622,13 +598,13 @@ const styles = StyleSheet.create({
     width: '30%',
     backgroundColor: colors.background.light,
     borderRadius: 12,
-    padding: 10, // Réduit légèrement le padding pour compenser la bordure
+    padding: 10,
     alignItems: 'center',
     marginBottom: 12,
     marginHorizontal: 4,
     borderWidth: 2,
     borderColor: 'transparent',
-    height: 120, // Hauteur fixe pour toutes les cartes
+    height: 120,
   },
   sportCardSelected: {
     borderColor: colors.primary,
@@ -644,7 +620,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sportIconContainerSelected: {
-    backgroundColor: colors.primary + '20', // 20% opacity
+    backgroundColor: colors.primary + '20',
   },
   sportIcon: {
     fontSize: 30,
@@ -657,6 +633,25 @@ const styles = StyleSheet.create({
   sportNameSelected: {
     color: colors.primary,
     fontWeight: '600',
+  },
+  sportInfoContainer: {
+    marginTop: 16,
+  },
+  sportInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  sportInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sportInfoIcon: {
+    marginRight: 8,
+  },
+  sportInfoText: {
+    fontSize: 14,
+    color: colors.text.primary,
   },
   dateTimeContainer: {
     marginBottom: Platform.OS === 'ios' ? 0 : 10,

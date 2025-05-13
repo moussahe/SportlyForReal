@@ -46,7 +46,7 @@ import UpcomingSessionBanner from '../../components/UpcomingSessionBanner';
 
 // utils
 import { formatDate } from '../../utils/dateUtils';
-import { getNextUpcomingSession, isSessionUpcoming, isSessionActive } from '../../utils/sessionUtils';
+import { getNextUpcomingSession, isSessionUpcoming } from '../../utils/sessionUtils';
 import { calculateDistance, getCurrentPosition, formatDistance, Coordinates, requestLocationPermission } from '../../utils/locationUtils';
 
 export type RootStackParamList = {
@@ -426,34 +426,9 @@ export const HomeScreen: React.FC = () => {
       saveUpcomingSession(null, false);
     }
     
-    // Vérifier si l'utilisateur a une session active en cours
-    const checkForActiveSession = () => {
-      // Vérifier les sessions de l'utilisateur (celles auxquelles il participe ou qu'il héberge)
-      const userSessions = sessions.filter(session => 
-        session.participants.some(participant => participant.id === currentUser.id) || 
-        session.host.id === currentUser.id
-      );
-      
-      // Vérifier si l'une de ces sessions est active
-      for (const session of userSessions) {
-        const activeInfo = isSessionActive(session);
-        if (activeInfo.isActive) {
-          // Rediriger vers l'écran ActiveSession
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'ActiveSession', params: { sessionId: session.id } }],
-          });
-          return;
-        }
-      }
-    };
-    
-    // Vérifier immédiatement, puis toutes les 30 secondes
-    checkForActiveSession();
-    const activeSessionInterval = setInterval(checkForActiveSession, 30000);
-    
-    return () => clearInterval(activeSessionInterval);
-  }, [sessions, currentUser, navigation]);
+    // Nous n'avons plus besoin de vérifier les sessions actives ici
+    // car ça sera géré par le SessionManager global
+  }, [sessions, currentUser, upcomingSession]);
 
   useEffect(() => {
     const refreshInterval = setInterval(() => {

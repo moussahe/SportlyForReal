@@ -212,7 +212,6 @@ export const LobbyScreen = () => {
   }, [currentSession]);
 
   useEffect(() => {
-    console.log('🔄 Chargement de la session:', route.params.sessionId);
     dispatch(fetchSessionById(route.params.sessionId));
 
     return () => {
