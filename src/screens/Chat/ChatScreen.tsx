@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+
+// native
 import {
   View,
   Text,
@@ -15,15 +17,25 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../navigation/MainStack';
-import { selectSessionMessages, sendMessage } from '../../store/slices/chatSlice';
-import { RootState } from '../../store/store';
-import { Ionicons } from '@expo/vector-icons';
+
+// lib
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+
+// theme
 import colors from '../../theme/colors';
+
+// expo
+import { Ionicons } from '@expo/vector-icons';
+// redux
+import { useDispatch, useSelector } from 'react-redux';
+
+// navigation
+import { RootStackParamList } from '../../navigation/MainStack';
+
+// store
+import { RootState } from '../../store/store';
+import { selectSessionMessages, sendMessage } from '../../store/slices/chatSlice';
 
 type ChatScreenRouteProp = RouteProp<RootStackParamList, 'Chat'>;
 

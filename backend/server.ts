@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient, SessionStatus, Level } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import authRoutes from './routes/authRoutes';
+import sessionRoutes from './routes/sessionRoutes';
+import sportRoutes from './routes/sportRoutes';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -9,17 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
-// Middleware temporaire pour simuler un utilisateur authentifié
-// À remplacer par une vraie authentification plus tard
-app.use((req, res, next) => {
-  // Simuler un utilisateur connecté pour les besoins de développement
-  req.user = {
-    id: '7c7d0616-f0b1-4c1d-ae6a-bf7bd5113d91', // ID d'un utilisateur existant dans la DB
-    email: 'Claude.Hubert@example.com'
-  };
-  next();
-});
 
 // Route racine
 app.get('/', (req, res) => {
@@ -32,15 +24,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // Routes API
-app.get('/api/sports', async (req, res) => {
-  try {
-    const sports = await prisma.sport.findMany();
-    res.json(sports);
-  } catch (error) {
-    console.error('Erreur /api/sports:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des sports' });
-  }
-});
+app.use('/api/auth', authRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/sports', sportRoutes);
 
 app.get('/api/sessions', async (req, res) => {
   try {

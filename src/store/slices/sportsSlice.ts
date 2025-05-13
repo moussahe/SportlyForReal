@@ -12,11 +12,8 @@ export const fetchSports = createAsyncThunk(
   'sports/fetchSports',
   async () => {
     try {
-      console.log(`Fetching sports from: ${EXPO_PUBLIC_API_URL }/sports`);
       const response = await fetch(`${EXPO_PUBLIC_API_URL }/sports`);
-      
-      console.log('Response status:', response.status);
-      
+            
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Error response:', errorText);
@@ -24,7 +21,6 @@ export const fetchSports = createAsyncThunk(
       }
       
       const data = await response.json();
-      console.log('Sports loaded successfully:', data.length || 0, 'sports');
       return data;
     } catch (error) {
       console.error('Error fetching sports:', error);
