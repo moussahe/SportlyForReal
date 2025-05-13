@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
+
+// native
 import {
   View,
   Text,
@@ -14,21 +16,38 @@ import {
   StatusBar,
   ScrollView,
   TouchableWithoutFeedback,
+  Image
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { RootState, AppDispatch } from '../../store/store';
-import { formatDate } from '../../utils/dateUtils';
-import { fetchSessions } from '../../store/slices/sessionsSlice';
-import { calculateDistance, getCurrentPosition, formatDistance, Coordinates, requestLocationPermission } from '../../utils/locationUtils';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Session, SessionsState } from '../../types';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+
+// theme
 import colors from '../../theme/colors';
-import { Ionicons } from '@expo/vector-icons';
+
+// types
+import { Session, SessionsState } from '../../types';
+
+// redux
+import { useDispatch, useSelector } from 'react-redux';
+
+// expo
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+
+// store
+import { RootState, AppDispatch } from '../../store/store';
+import { fetchSessions } from '../../store/slices/sessionsSlice';
+
+// storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// components
 import UpcomingSessionBanner from '../../components/UpcomingSessionBanner';
+
+// utils
+import { formatDate } from '../../utils/dateUtils';
 import { getNextUpcomingSession, isSessionUpcoming, isSessionActive } from '../../utils/sessionUtils';
+import { calculateDistance, getCurrentPosition, formatDistance, Coordinates, requestLocationPermission } from '../../utils/locationUtils';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -387,7 +406,7 @@ export const HomeScreen: React.FC = () => {
   useEffect(() => {
     loadSessions();
     initializeLocation();
-    loadSavedUpcomingSession(); // Charger la session sauvegardée
+    loadSavedUpcomingSession();
   }, [dispatch]);
   
   useEffect(() => {
@@ -486,7 +505,6 @@ export const HomeScreen: React.FC = () => {
       // Vérifier rapidement si nous avons déjà une position en cache pour l'afficher immédiatement
       const lastLocation = await getStoredLocation();
       if (lastLocation && !userLocation) {
-        console.log('📍 Utilisation de la dernière position connue en attendant mise à jour...');
         setUserLocation(lastLocation);
       }
       
@@ -494,7 +512,6 @@ export const HomeScreen: React.FC = () => {
       
       // Si la permission n'est pas accordée, on la demande explicitement
       if (status !== 'granted') {
-        console.log('📍 Demande de permission de localisation...');
         const permissionResult = await requestLocationPermission();
         if (!permissionResult) {
           setLocationError("L'accès à votre localisation est nécessaire pour afficher les sessions à proximité.");
@@ -511,12 +528,10 @@ export const HomeScreen: React.FC = () => {
       
       const position = await Promise.race([positionPromise, timeoutPromise])
         .catch(error => {
-          console.log('Délai dépassé pour la localisation, utilisation de la dernière position connue:', error);
           return lastLocation ? { coords: lastLocation, permissionGranted: true } : null;
         });
 
       if (position && position.coords) {
-        console.log('✅ Position obtenue:', position);
         setUserLocation(position.coords);
         setLocationError(null);
         
@@ -667,8 +682,6 @@ export const HomeScreen: React.FC = () => {
             opacity: new Animated.Value(0.8)
           }}
         >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Chargement des sessions...</Text>
         </Animated.View>
       </SafeAreaView>
     );
@@ -708,7 +721,10 @@ export const HomeScreen: React.FC = () => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('Profile')}
             >
-              <Ionicons name="person" size={22} color={colors.text.secondary} />
+              <Image
+                source={{ uri: currentUser?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || '')}&background=random&size=200&bold=true&format=png` }}
+                style={styles.profilePicture}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -780,7 +796,7 @@ export const HomeScreen: React.FC = () => {
           }}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
           refreshControl={
             <RefreshControl 
               refreshing={refreshing} 
@@ -838,14 +854,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconButton: {
-    padding: 10,
-    borderRadius: 50,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#F0F2F5',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profilePicture: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'white',
   },
   searchContainer: {
     paddingHorizontal: 16,

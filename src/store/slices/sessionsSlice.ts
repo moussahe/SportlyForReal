@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { Session, User } from '../../types';
 import { EXPO_PUBLIC_API_URL  } from '../../config';
 import { RootState } from '../store';
+import { handleAuthError } from '../../utils/authUtils';
 
 interface SessionsState {
   sessions: Session[] | null;
@@ -35,11 +36,23 @@ interface CreateSessionPayload {
 
 export const fetchSessions = createAsyncThunk(
   'sessions/fetchSessions',
-  async () => {
+  async (_, { getState }) => {
     try {
-      console.log(`Fetching sessions from: ${EXPO_PUBLIC_API_URL }/sessions`);
-      const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions`);
       
+      // Récupérer le token depuis le state Redux
+      const { auth } = getState() as { auth: { token: string | null } };
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Ajouter le token d'authentification s'il existe
+      if (auth.token) {
+        headers.Authorization = `Bearer ${auth.token}`;
+      };
+      
+      const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions`, {
+        headers
+      });
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -48,7 +61,6 @@ export const fetchSessions = createAsyncThunk(
       }
       
       const data = await response.json();
-      console.log('Sessions loaded successfully:', data.length || 0, 'sessions');
       return data;
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -59,8 +71,22 @@ export const fetchSessions = createAsyncThunk(
 
 export const fetchSessionById = createAsyncThunk(
   'sessions/fetchSessionById',
-  async (sessionId: string) => {
-    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}`);
+  async (sessionId: string, { getState }) => {
+    // Récupérer le token depuis le state Redux
+    const { auth } = getState() as { auth: { token: string | null } };
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Ajouter le token d'authentification s'il existe
+    if (auth.token) {
+      headers.Authorization = `Bearer ${auth.token}`;
+    }
+    
+    const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}`, {
+      headers
+    });
+    
     if (!response.ok) {
       throw new Error('Session non trouvée');
     }
@@ -70,12 +96,21 @@ export const fetchSessionById = createAsyncThunk(
 
 export const joinSession = createAsyncThunk(
   'sessions/joinSession',
-  async ({ sessionId, userId, teamId }: JoinSessionPayload) => {
+  async ({ sessionId, userId, teamId }: JoinSessionPayload, { getState }) => {
+    // Récupérer le token depuis le state Redux
+    const { auth } = getState() as { auth: { token: string | null } };
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Ajouter le token d'authentification s'il existe
+    if (auth.token) {
+      headers.Authorization = `Bearer ${auth.token}`;
+    }
+    
     const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}/join`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ userId, teamId }),
     });
 
@@ -90,12 +125,21 @@ export const joinSession = createAsyncThunk(
 
 export const leaveSession = createAsyncThunk(
   'sessions/leaveSession',
-  async ({ sessionId, userId, teamId }: JoinSessionPayload) => {
+  async ({ sessionId, userId, teamId }: JoinSessionPayload, { getState }) => {
+    // Récupérer le token depuis le state Redux
+    const { auth } = getState() as { auth: { token: string | null } };
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Ajouter le token d'authentification s'il existe
+    if (auth.token) {
+      headers.Authorization = `Bearer ${auth.token}`;
+    }
+    
     const response = await fetch(`${EXPO_PUBLIC_API_URL }/sessions/${sessionId}/leave`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ userId, teamId }),
     });
 
@@ -196,6 +240,8 @@ const sessionsSlice = createSlice({
       .addCase(joinSession.fulfilled, (state, action) => {
         state.loading = false;
         state.currentSession = action.payload;
+        
+        // Mettre à jour la session dans la liste des sessions
         if (state.sessions) {
           const index = state.sessions.findIndex(s => s.id === action.payload.id);
           if (index !== -1) {
@@ -215,13 +261,14 @@ const sessionsSlice = createSlice({
       .addCase(leaveSession.fulfilled, (state, action) => {
         state.loading = false;
         state.currentSession = action.payload;
+        
+        // Mettre à jour la session dans la liste des sessions
         if (state.sessions) {
           const index = state.sessions.findIndex(s => s.id === action.payload.id);
           if (index !== -1) {
             state.sessions[index] = action.payload;
           }
         }
-        state.currentSession = null;
       })
       .addCase(leaveSession.rejected, (state, action) => {
         state.loading = false;

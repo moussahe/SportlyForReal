@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { User } from '../../types';
-import { mockUser } from '../mockData';
+import { login, signup, loadSavedAuth, logout as authLogout } from './authSlice';
 
 interface UserState {
   currentUser: User | null;
@@ -9,7 +9,7 @@ interface UserState {
 }
 
 const initialState: UserState = {
-  currentUser: mockUser,
+  currentUser: null,
   isLoading: false,
   error: null,
 };
@@ -33,6 +33,31 @@ const userSlice = createSlice({
       state.currentUser = null;
       state.error = null;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      // When user logs in successfully
+      .addCase(login.fulfilled, (state, action) => {
+        state.currentUser = action.payload.user;
+        state.error = null;
+      })
+      // When user signs up successfully
+      .addCase(signup.fulfilled, (state, action) => {
+        state.currentUser = action.payload.user;
+        state.error = null;
+      })
+      // When saved authentication is loaded
+      .addCase(loadSavedAuth.fulfilled, (state, action) => {
+        if (action.payload && action.payload.user) {
+          state.currentUser = action.payload.user;
+        }
+        state.error = null;
+      })
+      // When user logs out
+      .addCase(authLogout, (state) => {
+        state.currentUser = null;
+        state.error = null;
+      });
   },
 });
 

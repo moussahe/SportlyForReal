@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { CONFIG } from '../constants/config';
+import { authStorage } from './authStorage';
 
 const api = axios.create({
   baseURL: CONFIG.EXPO_PUBLIC_API_URL ,
@@ -8,6 +9,18 @@ const api = axios.create({
   },
   timeout: CONFIG.DEFAULT_TIMEOUT,
 });
+
+// Intercepteur pour ajouter le token d'authentification à chaque requête
+api.interceptors.request.use(
+  async (config) => {
+    const token = await authStorage.getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export const sportlyAPI = {
   // Sessions

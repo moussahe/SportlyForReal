@@ -14,7 +14,9 @@
  * @uses Ionicons - Pour les icônes de l'interface
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// native
 import { 
   View, 
   Text, 
@@ -32,16 +34,30 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../navigation/MainStack';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../store/store';
-import { Level, Sport } from '../../types';
-import colors from '../../theme/colors';
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { createSession } from '../../store/slices/sessionsSlice';
-import { fetchSports } from '../../store/slices/sportsSlice';
+
+// redux
+import { useDispatch, useSelector } from 'react-redux';
+
+// types
+import { Level, Sport } from '../../types';
+
+// theme
+import colors from '../../theme/colors';
+
+// expo
+import { Ionicons } from '@expo/vector-icons';
+
+// utils
 import { geocodeAddress } from '../../utils/locationUtils';
+
+// navigation
+import { RootStackParamList } from '../../navigation/MainStack';
+
+// store
+import { AppDispatch, RootState } from '../../store/store';
+import { fetchSports } from '../../store/slices/sportsSlice';
+import { createSession } from '../../store/slices/sessionsSlice';
 
 type CreateSessionScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 

@@ -1,25 +1,47 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, SafeAreaView } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../../store';
+
+// expo
 import { Ionicons } from '@expo/vector-icons';
-import { logout } from '../../store/slices/userSlice';
+
+// store
+import { RootState } from '../../store/store';
+import { logout } from '../../store/slices/authSlice';
+
+// redux
+import { useSelector, useDispatch } from 'react-redux';
+
+// native
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, SafeAreaView, Alert } from 'react-native';
 
 export const ProfileScreen = () => {
   const dispatch = useDispatch();
-  const { currentUser } = useSelector((state: RootState) => state.user);
+  const { user } = useSelector((state: RootState) => state.auth);
   
   // Données temporaires au lieu de state.workout qui n'existe pas encore
   const userStats = {
-    sessionsCompleted: 0,
+    sessionsCompleted: user?.hostedSessions?.length || 0,
     totalMinutes: 0
   };
 
   const handleLogout = () => {
-    dispatch(logout());
+    Alert.alert(
+      "Déconnexion",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        {
+          text: "Annuler",
+          style: "cancel"
+        },
+        { 
+          text: "Déconnexion", 
+          onPress: () => dispatch(logout()),
+          style: "destructive"
+        }
+      ]
+    );
   };
 
-  if (!currentUser) {
+  if (!user) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
@@ -37,11 +59,11 @@ export const ProfileScreen = () => {
       <ScrollView style={styles.screen}>
         <View style={styles.header}>
           <Image
-            source={{ uri: currentUser.profilePicture || 'https://via.placeholder.com/150' }}
+            source={{ uri: user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || '')}&background=random&size=200&bold=true&format=png` }}
             style={styles.profilePicture}
           />
-          <Text style={styles.name}>{currentUser.name}</Text>
-          <Text style={styles.email}>{currentUser.email}</Text>
+          <Text style={styles.name}>{user?.name}</Text>
+          <Text style={styles.email}>{user?.email}</Text>
         </View>
 
         <View style={styles.statsContainer}>

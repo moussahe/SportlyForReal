@@ -19,6 +19,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
+
+// native
 import { 
   View, 
   Text, 
@@ -30,20 +32,30 @@ import {
   ActivityIndicator, 
   SafeAreaView,
   StatusBar,
-  Platform,
   Animated
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { fetchSessionById, joinSession, leaveSession, clearCurrentSession } from '../../store/slices/sessionsSlice';
-import { RootState, AppDispatch } from '../../store/store';
-import { RootStackParamList } from '../../navigation/MainStack';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+
+// theme
+import colors from '../../theme/colors';
+
+// expo
+import { Ionicons } from '@expo/vector-icons';
+
+// redux
+import { useDispatch, useSelector } from 'react-redux';
+
+// utils
 import { formatDate } from '../../utils/dateUtils';
 import { isTeamLocked } from '../../utils/sessionUtils';
-import colors from '../../theme/colors';
-import { ChatSection } from '../../components/Chat/ChatSection';
-import { Ionicons } from '@expo/vector-icons';
+
+// navigation
+import { RootStackParamList } from '../../navigation/MainStack';
+
+// store
+import { RootState, AppDispatch } from '../../store/store';
+import { fetchSessionById, joinSession, leaveSession, clearCurrentSession } from '../../store/slices/sessionsSlice';
 
 type LobbyScreenRouteProp = RouteProp<RootStackParamList, 'Lobby'>;
 type LobbyScreenNavigationProp = StackNavigationProp<RootStackParamList>;
